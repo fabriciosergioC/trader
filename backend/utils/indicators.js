@@ -2,7 +2,8 @@ const { RSI, MACD, SMA, ADX, BollingerBands, ATR, OBV } = require("technicalindi
 
 function calcularIndicadores(closes, highs, lows, volumes) {
     return {
-        rsi:  RSI.calculate({ values: closes, period: 14 }),
+        rsi:  RSI.calculate({ values: closes, period: 9 }), // Reduzido de 14 para 9 para reagir mais rápido
+        rsi14: RSI.calculate({ values: closes, period: 14 }),
         sma9: SMA.calculate({ values: closes, period: 9 }),
         sma21: SMA.calculate({ values: closes, period: 21 }),
         macd: MACD.calculate({

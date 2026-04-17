@@ -48,6 +48,7 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
     const ind  = calcularIndicadores(closes, highs, lows, volumes);
 
     const rsi  = ind.rsi.at(-1);
+    const rsi14 = ind.rsi14.at(-1);
     const sma9 = ind.sma9.at(-1);
     const sma21= ind.sma21.at(-1);
     const macd = ind.macd.at(-1);
@@ -63,6 +64,7 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
     const resultado = gerarSinal({
         preco,
         rsi,
+        rsi14,
         sma9,
         sma21,
         macd,
