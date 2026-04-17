@@ -1,12 +1,12 @@
-const YahooFinance = require("yahoo-finance2").default;
-const yf = new YahooFinance();
+// Usar fetch direto ao invés do yahoo-finance2 para contornar bloqueio no Render.com
+const { buscarQuote } = require('./yahooFetch');
 
 async function buscarContextoMacro() {
     try {
         const [dolar, vix, ibov] = await Promise.allSettled([
-            yf.quote("USDBRL=X"),
-            yf.quote("^VIX"),
-            yf.quote("^BVSP"),
+            buscarQuote("USDBRL=X"),
+            buscarQuote("^VIX"),
+            buscarQuote("^BVSP"),
         ]);
 
         const d = dolar.status === "fulfilled" ? dolar.value : null;
@@ -23,8 +23,8 @@ async function buscarContextoMacro() {
 
         return {
             dolar: d ? {
-                valor:     d.regularMarketPrice,
-                variacao:  d.regularMarketChangePercent,
+                valor:       d.regularMarketPrice,
+                variacao:    d.regularMarketChangePercent,
                 variacaoAbs: d.regularMarketChange,
             } : null,
             vix: v ? { valor: vixPrice, risco } : null,

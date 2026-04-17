@@ -1,32 +1,23 @@
-const YahooFinance = require("yahoo-finance2").default;
-
-// Configurar Yahoo Finance para suprimir avisos
-const yahooFinance = new YahooFinance({
-    suppressNotices: ['yahooSurvey']
-});
+// Usar fetch direto ao invés do yahoo-finance2 para contornar bloqueio no Render.com
+const { buscarHistorico } = require('./yahooFetch');
 
 const { calcularIndicadores } = require("../utils/indicators");
 const { gerarSinal }          = require("../strategies/strategy");
 const { buscarNoticias }      = require("./news");
+
 
 // ── Cache local de notícias (evita buscas repetidas) ────────────────────────
 const noticiasCache = new Map();
 const NOTICIAS_CACHE_MS = 30 * 60 * 1000; // 30 minutos
 
 async function analisarAtivo(ticker, macro, skipNoticias = true) {
-    // ── Buscar dados históricos (OHLCV) - apenas 60 dias para performance ────
+    // ── Buscar dados históricos (OHLCV) - 300 dias para SMA 200 ────────────────
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 60); // Reduzido de 2024-01-01 para 60 dias
+    startDate.setDate(startDate.getDate() - 300);
+    const startDateStr = startDate.toISOString().split('T')[0];
 
-    const chart = await yahooFinance.chart(ticker, {
-        period1: startDate.toISOString().split('T')[0],
-        interval: "1d",
-    }).catch(err => {
-        console.warn(`⚠️ Erro ao buscar ${ticker}: ${err.message}`);
-        return { quotes: [] };
-    });
-
-    const dados   = chart.quotes?.filter(d => d.close != null) ?? [];
+    // Usar fetch HTTP direto — funciona no Render.com sem bloqueio
+    const dados = await buscarHistorico(ticker, startDateStr, '1d');
 
     if (dados.length < 10) {
         return {
@@ -51,6 +42,8 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
     const rsi14 = ind.rsi14.at(-1);
     const sma9 = ind.sma9.at(-1);
     const sma21= ind.sma21.at(-1);
+    const sma50= ind.sma50.at(-1);
+    const sma200= ind.sma200.at(-1);
     const macd = ind.macd.at(-1);
     const adx  = ind.adx.at(-1);        // { adx, pdi, mdi }
     const bb   = ind.bb.at(-1);         // { upper, middle, lower }
@@ -67,6 +60,8 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
         rsi14,
         sma9,
         sma21,
+        sma50,
+        sma200,
         macd,
         adx,
         bb,
@@ -105,6 +100,8 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
         rsi:       rsi,
         sma9:      sma9,
         sma21:     sma21,
+        sma50:     sma50,
+        sma200:    sma200,
         // Novos indicadores
         adx:       adx?.adx  ?? null,
         pdi:       adx?.pdi  ?? null,
@@ -114,6 +111,7 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
         obv_trend: resultado.detalhes.obv_trend,
         // Sinal e metadados
         sinal:     resultado.sinal,
+        sinal_longo_prazo: resultado.sinal_longo_prazo,
         forca:     resultado.forca,
         confianca: resultado.confianca,
         avisos:    resultado.avisos,
