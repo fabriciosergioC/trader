@@ -34,23 +34,27 @@ function geraVereditoHeuristico(dadosAtivo) {
     let justificativa_tecnica = "";
     
     // Lógica de Sentimento e Recomendação baseada em indicadores reais
-    if (rsi > 60 && tendencia.includes("ALTA")) {
+    if ((rsi > 50 && tendencia.includes("ALTA")) || rsi > 60) {
         sentimento = "Otimista";
         recomendacao = "Compra";
-        justificativa_tecnica = `O ativo ${ticker} apresenta forte momentum de alta. O RSI em ${rsi.toFixed(1)} indica pressão compradora saudável, enquanto a tendência confirmada pelas médias móveis sustenta o movimento.`;
-    } else if (rsi < 40 && tendencia.includes("BAIXA")) {
+        justificativa_tecnica = `O ativo ${ticker} apresenta momentum positivo. O RSI em ${rsi.toFixed(1)} e a tendência de ${tendencia} indicam força compradora.`;
+    } else if ((rsi < 50 && tendencia.includes("BAIXA")) || rsi < 40) {
         sentimento = "Pessimista";
         recomendacao = "Venda";
-        justificativa_tecnica = `O ativo ${ticker} está em tendência de baixa clara. O RSI em ${rsi.toFixed(1)} mostra domínio dos vendedores, e a falta de suporte nas médias curtas sugere continuidade da queda.`;
+        justificativa_tecnica = `O ativo ${ticker} mostra sinais de fraqueza. O RSI em ${rsi.toFixed(1)} e a tendência de ${tendencia} sugerem cautela com possíveis quedas.`;
     } else {
-        justificativa_tecnica = `O ativo ${ticker} encontra-se em zona de indefinição. O RSI em ${rsi.toFixed(1)} e o ADX em ${adx?.toFixed(1) || 'N/A'} sugerem ausência de tendência forte no momento, recomendando cautela e monitoramento de suportes.`;
+        justificativa_tecnica = `O ativo ${ticker} encontra-se em zona de indefinição. O RSI em ${rsi.toFixed(1)} e o ADX em ${adx?.toFixed(1) || 'N/A'} sugerem ausência de tendência forte, recomendando monitoramento.`;
     }
 
-    // Cálculo de alvos baseado em volatilidade (ATR)
+    // Cálculo de alvos inteligente (Long se for Compra ou Neutro/Tendência de Alta)
     const volatilidade = atr || (preco * 0.02);
     const entrada = preco;
-    const stop_loss = recomendacao === "Compra" ? preco - (volatilidade * 2) : preco + (volatilidade * 2);
-    const take_profit = recomendacao === "Compra" ? preco + (volatilidade * 3) : preco - (volatilidade * 3);
+    
+    // Se for Venda, alvos invertidos. Se for Compra ou Monitorar (mas com tendência de alta), alvos normais de compra.
+    const isShort = (recomendacao === "Venda");
+    
+    const stop_loss = isShort ? preco + (volatilidade * 2) : preco - (volatilidade * 2);
+    const take_profit = isShort ? preco - (volatilidade * 3) : preco + (volatilidade * 3);
 
     return {
         sentimento,
