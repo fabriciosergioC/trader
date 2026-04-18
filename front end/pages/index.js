@@ -936,25 +936,24 @@ function analisarEntrada(d) {
 
     // Calcular score final
     const score = pontosPositivos - pontosNegativos;
-    const totalPontos = pontosPositivos + pontosNegativos;
 
     // Determinar recomendação - THRESHOLDS MAIS RIGOROSOS
-    let recomendacao = "AGUARDAR";
-    let cor = "yellow";
-    let icone = "⏳";
-    let mensagem = "Aguardar melhores condições";
+    let recomendacao = "NEUTRO";
+    let cor = "blue";
+    let icone = "◆";
+    let mensagem = "Monitorando mercado";
 
     // Se há bloqueadores, NÃO recomendar entrada
     if (bloqueadores.length >= 2) {
-        recomendacao = "NÃO ENTRAR";
+        recomendacao = "EVITAR";
         cor = "red";
         icone = "🚫";
         mensagem = "Muitos fatores contrários - evite operar";
     } else if (bloqueadores.length >= 1 || score <= 0) {
-        recomendacao = "AGUARDAR";
+        recomendacao = "MONITORAR";
         cor = "yellow";
-        icone = "⏳";
-        mensagem = "Aguardar melhores condições";
+        icone = "🔎";
+        mensagem = "Aguardando confirmação de tendência";
     } else if (score >= 10 && d.confianca >= 70 && d.sinal !== "NEUTRO") {
         // Aumentei de 8 para 10 e de 60 para 70
         recomendacao = "ENTRAR";
