@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Head from "next/head";
 import axios from "axios";
 import { supabase } from '../utils/supabase';
 
@@ -1235,9 +1236,9 @@ export default function Home() {
     if (ativoSelecionado && dados.length > 0) {
         return (
             <>
-                <head>
+                <Head>
                     <title>TradeAI — {ativoSelecionado}</title>
-                </head>
+                </Head>
                 <div className="container">
                     <header className="header">
                         <div className="header-left">
@@ -1275,10 +1276,10 @@ export default function Home() {
     // ── Tela principal com lista de todos os ativos ───────────────────────────
     return (
         <>
-            <head>
+            <Head>
                 <title>TradeAI — Painel de Análise B3</title>
                 <meta name="description" content="Sistema inteligente de trade com ADX, Bollinger Bands, OBV, VIX e notícias PT-BR." />
-            </head>
+            </Head>
 
             <div className="container">
                 {/* ── Header ── */}
