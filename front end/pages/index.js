@@ -371,7 +371,24 @@ function MacroPanel({ macro }) {
 // ── Componente: Veredito da IA (Gemini)
 // ═════════════════════════════════════════════════════════════════════════════
 function VereditoIACard({ veredito }) {
-    if (!veredito || veredito.erro) return null;
+    if (!veredito) return null;
+
+    // Se houver erro (ex: API Key faltando), exibe um alerta amigável
+    if (veredito.erro) {
+        return (
+            <div className="veredito-ia-panel error">
+                <div className="veredito-ia-header">
+                    <span className="ia-icon">⚠️</span>
+                    <span className="ia-label">Análise Indisponível</span>
+                </div>
+                <div className="ia-justificativa" style={{ fontStyle: 'normal', color: '#fca5a5' }}>
+                    {veredito.erro === "GEMINI_API_KEY não configurada no .env" 
+                        ? "A chave da IA (Gemini) não foi configurada no servidor de produção. Verifique as variáveis de ambiente."
+                        : `Ocorreu um problema ao gerar a análise: ${veredito.erro}`}
+                </div>
+            </div>
+        );
+    }
 
     const sentimentoIcon = {
         Otimista: "🚀",
