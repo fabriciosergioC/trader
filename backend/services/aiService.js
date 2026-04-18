@@ -60,7 +60,7 @@ function geraVereditoHeuristico(dadosAtivo) {
         sentimento,
         recomendacao,
         justificativa_tecnica,
-        justificativa_contexto: "Análise gerada pelo motor heurístico local (Modo Ilimitado). Esta análise foca puramente nos dados técnicos e estatísticos do ativo para garantir disponibilidade constante.",
+        justificativa_contexto: `Análise otimizada para ${ticker} via Motor Heurístico (Modo Ilimitado). Devido à alta demanda ou ausência de chave API, processamos os dados técnicos (RSI, ADX, SMA) localmente para garantir vereditos instantâneos e 100% de disponibilidade.`,
         alvos: {
             entrada: Number(entrada.toFixed(2)),
             stop_loss: Number(stop_loss.toFixed(2)),
