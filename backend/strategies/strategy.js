@@ -120,8 +120,56 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, 
         alvos: {
             stop: detalhes.stopLoss,
             gain: detalhes.takeProfit
-        }
+        },
+        recomendacao: calcularRecomendacao(sinal, confianca, forca, detalhes, rsi, adxValue)
     };
+}
+
+/**
+ * Lógica consolidada de recomendação (Sincronizada com o Frontend)
+ */
+function calcularRecomendacao(sinal, confianca, forca, detalhes, rsi, adx) {
+    let pontosPositivos = 0;
+    let pontosNegativos = 0;
+    let bloqueadores = [];
+
+    // 1. Tendência e Sinal
+    if (sinal === "COMPRA") pontosPositivos += 2;
+    if (sinal === "VENDA") pontosNegativos += 2;
+    if (detalhes.tendencia === "ALTA") pontosPositivos += 1;
+    else pontosNegativos += 1;
+
+    // 2. Confiança
+    if (confianca >= 65) pontosPositivos += 2;
+    else if (confianca >= 40) pontosPositivos += 1;
+    else pontosNegativos += 1;
+
+    // 3. ADX
+    if (adx >= 25) pontosPositivos += 2;
+    else if (adx < 20) {
+        bloqueadores.push("ADX Baixo (Lateral)");
+        pontosNegativos += 3;
+    }
+
+    // 4. RSI
+    if (rsi < 40) pontosPositivos += 2;
+    else if (rsi > 65) pontosNegativos += 1;
+    else pontosPositivos += 1;
+
+    // 5. Filtros de Segurança (Bloqueadores)
+    if (detalhes.pressao_dia === "NEGATIVA" && sinal === "COMPRA") {
+        bloqueadores.push("Pressão Vendedora no Dia");
+        pontosNegativos += 4;
+    }
+
+    const score = pontosPositivos - pontosNegativos;
+
+    if (bloqueadores.length >= 2) return { tipo: "EVITAR", score, icone: "🚫" };
+    if (bloqueadores.length >= 1 || score <= 0) return { tipo: "MONITORAR", score, icone: "🔎" };
+    if (score >= 8 && confianca >= 70) return { tipo: "ENTRAR", score, icone: "✅" };
+    if (score >= 4 && confianca >= 60) return { tipo: "ENTRAR COM CAUTELA", score, icone: "⚡" };
+    
+    return { tipo: "NEUTRO", score, icone: "◆" };
 }
 
 module.exports = { gerarSinal };

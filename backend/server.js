@@ -494,9 +494,11 @@ cron.schedule("*/10 9-18 * * 1-5", async () => {
         console.log(`📡 [CRON] Passo 1: Varredura rápida em ${ATIVOS_VALIDOS.length} ativos...`);
         const varreduraRapida = await processarAtivosEmBatch(ATIVOS_VALIDOS, macro, 30, true);
         
-        // 2. Filtrar ativos com sinal de COMPRA e confiança >= 60%
-        const sinaisDetectados = varreduraRapida.filter(r => r.sinal === "COMPRA" && r.confianca >= 60);
-        console.log(`🎯 [CRON] Passo 2: ${sinaisDetectados.length} potenciais sinais detectados.`);
+        // 2. Filtrar ativos com Recomendação de ENTRADA ou ENTRAR COM CAUTELA
+        const sinaisDetectados = varreduraRapida.filter(r => 
+            r.recomendacao && (r.recomendacao.tipo === "ENTRAR" || r.recomendacao.tipo === "ENTRAR COM CAUTELA")
+        );
+        console.log(`🎯 [CRON] Passo 2: ${sinaisDetectados.length} sinais reais detectados.`);
 
         if (sinaisDetectados.length > 0) {
             // 3. Análise Profunda (com Gemini/Notícias) APENAS nos ativos com sinal
@@ -571,7 +573,8 @@ app.get("/analise-rapida", async (req, res) => {
             forca: r.forca,
             rsi: r.rsi,
             adx: r.adx,
-            tendencia: r.detalhes?.tendencia || "NEUTRO"
+            tendencia: r.detalhes?.tendencia || "NEUTRO",
+            recomendacao: r.recomendacao
         }));
 
         cachedAnaliseFull = resultadosValidos;

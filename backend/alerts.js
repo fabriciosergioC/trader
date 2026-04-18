@@ -39,22 +39,23 @@ function verificarAlerta(dados) {
     const agora = Date.now();
 
     dados.forEach(d => {
-        const { ticker, sinal, confianca, preco, detalhes, avisos, vereditoIA } = d;
+        const { ticker, sinal, confianca, preco, detalhes, avisos, vereditoIA, recomendacao } = d;
         const score = d.score || (detalhes?.score);
 
         // Chave única para evitar spam do mesmo ativo e mesmo sinal
         const alertaKey = `${ticker}_${sinal}`;
         const lastSent = alertasEnviados.get(alertaKey);
 
-        // 🟢 ALERTA DE COMPRA (Filtro ajustado para mais oportunidades)
-        if (sinal === "COMPRA" && confianca >= 60) {
+        // 🟢 ALERTA DE COMPRA (Filtro agora sincronizado com o Veredito de Entrada)
+        const podeEnviar = recomendacao && (recomendacao.tipo === "ENTRAR" || recomendacao.tipo === "ENTRAR COM CAUTELA");
+
+        if (sinal === "COMPRA" && podeEnviar) {
             // Se já enviamos este alerta nas últimas 4 horas, pulamos
             if (lastSent && (agora - lastSent) < ALERTA_COOLDOWN_MS) {
-                // console.log(`⏩ [SKIP] Alerta de ${ticker} já enviado recentemente.`);
                 return;
             }
 
-            let msg = `<b>🚀 SINAL DE COMPRA: ${ticker.replace('.SA', '')}</b>\n\n` +
+            let msg = `<b>${recomendacao.icone} ${recomendacao.tipo}: ${ticker.replace('.SA', '')}</b>\n\n` +
                       `💰 <b>Preço:</b> R$ ${preco.toFixed(2)}\n` +
                       `🔥 <b>Confiança:</b> ${confianca}%\n` +
                       `📊 <b>Score Técnico:</b> ${score > 0 ? '+' : ''}${score}\n`;
