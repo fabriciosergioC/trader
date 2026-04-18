@@ -8,11 +8,16 @@ const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
  * geraVereditoIA — Envia dados técnicos e notícias para o Gemini gerar um parecer
  */
 async function geraVereditoIA(dadosAtivo, dadosMacro) {
-    if (!process.env.GEMINI_API_KEY) {
-        return { erro: "GEMINI_API_KEY não configurada no .env" };
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === "SUA_CHAVE_AQUI") {
+        console.error("❌ ERRO: GEMINI_API_KEY não configurada no ambiente.");
+        return { erro: "GEMINI_API_KEY não configurada no servidor." };
     }
 
     try {
+        // Garantir que notícias não estourem o prompt (limitar a 5 notícias)
+        const noticiasLimitadas = (dadosAtivo.noticias || []).slice(0, 5);
+        
         const prompt = `
         Aja como um analista financeiro sênior especializado na B3 (Bolsa Brasileira), certificado com CNPI.
         Sua tarefa é fornecer uma análise técnica e qualitativa extremamente precisa para o ativo ${dadosAtivo.ticker}.
@@ -32,8 +37,8 @@ async function geraVereditoIA(dadosAtivo, dadosMacro) {
         - Tendência IBOV: ${dadosMacro.ibov_tendencia || "N/A"}
 
         NOTÍCIAS RECENTES DO ATIVO:
-        ${dadosAtivo.noticias && dadosAtivo.noticias.length > 0 
-            ? dadosAtivo.noticias.map(n => `- ${n.title}`).join('\n')
+        ${noticiasLimitadas.length > 0 
+            ? noticiasLimitadas.map(n => `- ${n.title}`).join('\n')
             : "Nenhuma notícia relevante recente."}
 
         ANÁLISE REQUERIDA:
@@ -73,22 +78,29 @@ async function geraVereditoIA(dadosAtivo, dadosMacro) {
         }
 
         try {
-            return JSON.parse(jsonStr);
+            const parsed = JSON.parse(jsonStr);
+            // Validar campos essenciais
+            if (!parsed.sentimento || !parsed.recomendacao) throw new Error("JSON incompleto");
+            return parsed;
         } catch (e) {
             console.error("Erro ao fazer parse do JSON da IA:", e.message, "Texto:", text);
             // Fallback caso a IA retorne algo inválido
             return {
                 sentimento: "Neutro",
                 recomendacao: "Aguardar",
-                justificativa_tecnica: "Análise técnica prejudicada por falha na IA.",
+                justificativa_tecnica: "Análise técnica prejudicada por falha na formatação da IA.",
                 justificativa_contexto: "Ocorreu um erro no processamento da inteligência artificial.",
                 alvos: { entrada: dadosAtivo.preco, stop_loss: dadosAtivo.preco * 0.95, take_profit: dadosAtivo.preco * 1.10 },
                 confianca: 50
             };
         }
     } catch (error) {
-        console.error("Erro no Gemini AI:", error.message);
-        return { erro: "Falha ao gerar veredito da IA" };
+        console.error("❌ Erro Crítico no Gemini AI:", error.message);
+        // Se o erro for de segurança ou cota, avisamos no retorno
+        if (error.message.includes("SAFETY") || error.message.includes("quota")) {
+            return { erro: "Limite de cota ou filtro de segurança da IA atingido." };
+        }
+        return { erro: `Falha na IA: ${error.message.substring(0, 50)}...` };
     }
 }
 

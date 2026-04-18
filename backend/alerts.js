@@ -7,9 +7,9 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-// ── Cache de alertas enviados para evitar spam (limpa a cada 4 horas por ativo) ──
+// ── Cache de alertas enviados para evitar spam (limpa a cada 1 hora por ativo) ──
 const alertasEnviados = new Map();
-const ALERTA_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 horas
+const ALERTA_COOLDOWN_MS = 1 * 60 * 60 * 1000; // 1 hora
 
 async function enviarParaTelegram(mensagem) {
     const token = process.env.TELEGRAM_TOKEN;
