@@ -12,7 +12,7 @@ async function enviarParaTelegram(mensagem) {
     const chatId = process.env.TELEGRAM_CHAT_ID;
 
     if (!token || !chatId) {
-        // console.log('⚠️ Telegram não configurado. Adicione TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no seu .env');
+        console.log('⚠️ Alerta: TELEGRAM_TOKEN ou TELEGRAM_CHAT_ID não configurados no .env. O sinal não será enviado.');
         return;
     }
 

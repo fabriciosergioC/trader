@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors    = require("cors");
+const cron    = require("node-cron");
 
 const { analisarAtivo }    = require("./services/analysis");
 const { verificarAlerta }  = require("./alerts");
@@ -470,6 +471,41 @@ app.get("/analise-ia/:ticker", async (req, res) => {
         console.error("Erro /analise-ia:", error.message);
         res.status(500).json({ error: "Erro ao gerar análise da IA" });
     }
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── Agendador Automático (CRON)
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Varrer o mercado a cada 15 minutos em busca de sinais fortes
+// Executa de Segunda a Sexta, das 09h às 18h (Horário de Brasília/Mercado)
+cron.schedule("*/15 9-18 * * 1-5", async () => {
+    console.log(`\n⏰ [CRON] Iniciando varredura automática de mercado (${new Date().toLocaleTimeString()})...`);
+    
+    try {
+        const macro = await getMacro();
+        
+        // Vamos varrer os ativos principais para não sobrecarregar
+        // Usamos uma lista menor para ser mais rápido e eficiente na varredura automática
+        const ativosPrincipais = [
+            "PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "BBAS3.SA", 
+            "ABEV3.SA", "WEGE3.SA", "RENT3.SA", "MGLU3.SA", "SUZB3.SA"
+        ];
+
+        // Se quiser varrer TODOS, use TODOS_ATIVOS, mas cuidado com rate limits
+        const resultados = await processarAtivosEmBatch(ativosPrincipais, macro, 5, false); // false = busca notícias/IA
+
+        console.log(`✅ [CRON] Varredura concluída. ${resultados.length} ativos analisados.`);
+        
+        // A função verificarAlerta já envia para o Telegram se encontrar sinais fortes
+        verificarAlerta(resultados);
+
+    } catch (error) {
+        console.error("❌ [CRON] Erro na varredura automática:", error.message);
+    }
+}, {
+    scheduled: true,
+    timezone: "America/Sao_Paulo"
 });
 
 // ── GET /analise-rapida — análise sem detalhes para performance ──────────────

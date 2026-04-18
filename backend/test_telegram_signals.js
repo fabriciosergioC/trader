@@ -30,7 +30,12 @@ async function testTelegram() {
     console.log("🔄 Disparando alerta simulado...");
     verificarAlerta(mockDados);
     
-    console.log("\nℹ️  Se o token e chat_id estiverem corretos no .env, você receberá a mensagem em instantes.");
+    if (!process.env.TELEGRAM_TOKEN || !process.env.TELEGRAM_CHAT_ID) {
+        console.log("\n❌ ERRO: Variáveis do Telegram estão vazias no .env!");
+        console.log("Preencha TELEGRAM_TOKEN e TELEGRAM_CHAT_ID para o teste funcionar.");
+    } else {
+        console.log("\nℹ️  Aguarde a mensagem no seu Telegram.");
+    }
 }
 
 testTelegram();
