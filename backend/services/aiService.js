@@ -14,38 +14,48 @@ async function geraVereditoIA(dadosAtivo, dadosMacro) {
 
     try {
         const prompt = `
-        Aja como um analista financeiro sênior especializado na B3 (Bolsa Brasileira).
-        Analise os dados abaixo do ativo ${dadosAtivo.ticker} e forneça um veredito de trading.
+        Aja como um analista financeiro sênior especializado na B3 (Bolsa Brasileira), certificado com CNPI.
+        Sua tarefa é fornecer uma análise técnica e qualitativa extremamente precisa para o ativo ${dadosAtivo.ticker}.
 
-        DADOS TÉCNICOS:
-        - Preço Atual: R$ ${dadosAtivo.preco}
-        - RSI: ${dadosAtivo.rsi}
-        - Tendência Médio Prazo (SMA 9 vs 21): ${dadosAtivo.detalhes.tendencia}
-        - Força da Tendência (ADX): ${dadosAtivo.adx}
-        - Volatilidade (ATR): ${dadosAtivo.atr}
-        - Sinais de Candle: ${dadosAtivo.detalhes.rejeicao || "Nenhum"}
+        DADOS TÉCNICOS ATUAIS:
+        - Preço: R$ ${dadosAtivo.preco}
+        - RSI (14): ${dadosAtivo.rsi} (Interpretado: <30 Sobrevenda, >70 Sobrecompra)
+        - ADX: ${dadosAtivo.adx} (Interpretado: >25 Tendência forte, <20 Sem tendência)
+        - ATR: ${dadosAtivo.atr} (Volatilidade média)
+        - Tendência (SMA 9 vs 21): ${dadosAtivo.detalhes.tendencia}
+        - Sinais de Candle: ${dadosAtivo.detalhes.rejeicao || "Nenhum sinal claro"}
         - Pressão do Dia: ${dadosAtivo.detalhes.pressao_dia || "Neutra"}
 
-        CONTEXTO MACRO:
-        - VIX (Volatilidade Global): ${dadosMacro.vix}
-        - Taxa Selic (implícita/foco): ${dadosMacro.selic || "N/A"}
+        CONTEXTO MACROECONÔMICO:
+        - VIX: ${dadosMacro.vix} (Aversão ao risco)
+        - Selic Estimada: ${dadosMacro.selic || "N/A"}
         - Tendência IBOV: ${dadosMacro.ibov_tendencia || "N/A"}
 
-        NOTÍCIAS RECENTES:
-        ${dadosAtivo.noticias.map(n => `- ${n.title}`).join('\n')}
+        NOTÍCIAS RECENTES DO ATIVO:
+        ${dadosAtivo.noticias && dadosAtivo.noticias.length > 0 
+            ? dadosAtivo.noticias.map(n => `- ${n.title}`).join('\n')
+            : "Nenhuma notícia relevante recente."}
 
-        TAREFA:
-        1. Classifique o sentimento atual (Otimista, Neutro ou Pessimista).
-        2. Dê uma recomendação (Compra, Venda ou Aguardar).
-        3. Justifique em no máximo 3 frases curtas e diretas.
-        4. Defina um nível de confiança de 0 a 100%.
+        ANÁLISE REQUERIDA:
+        1. Sentimento: (Otimista, Neutro ou Pessimista)
+        2. Recomendação: (Compra, Venda ou Aguardar)
+        3. Justificativa Técnica: Explique baseando-se nos indicadores RSI, ADX e Médias Móveis.
+        4. Justificativa Fundamentalista/Notícias: Como o contexto macro e as notícias impactam o ativo.
+        5. Alvos: Sugira um Preço de Entrada, Stop Loss e Take Profit com base na volatilidade (ATR) e preço atual.
+        6. Confiança: Nível de certeza de 0 a 100%.
 
-        Retorne APENAS um objeto JSON no formato:
+        Retorne APENAS um objeto JSON válido (sem markdown, sem textos extras) no formato:
         {
           "sentimento": "string",
           "recomendacao": "string",
-          "justificativa": "string",
-          "confianca": "number"
+          "justificativa_tecnica": "string",
+          "justificativa_contexto": "string",
+          "alvos": {
+            "entrada": number,
+            "stop_loss": number,
+            "take_profit": number
+          },
+          "confianca": number
         }
         `;
 

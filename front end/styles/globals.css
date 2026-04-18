@@ -502,11 +502,144 @@ body::before {
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
-  .stats-row { grid-template-columns: 1fr 1fr; }
-  .cards-grid { grid-template-columns: 1fr; }
-  .header { flex-direction: column; align-items: flex-start; gap: 16px; }
-  .price-value { font-size: 26px; }
-  .macro-panel { grid-template-columns: 1fr; }
+  .container {
+    padding: 16px 12px 40px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+
+  .stat-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+  }
+
+  .macro-panel {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .asset-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .ticker {
+    font-size: 20px;
+  }
+
+  .price-value {
+    font-size: 26px;
+  }
+
+  .price-history-grid {
+    gap: 12px;
+  }
+
+  .price-history-value {
+    font-size: 16px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .metric {
+    padding: 10px;
+  }
+
+  .metric-value {
+    font-size: 13px;
+  }
+
+  /* Ajustes para o Gemini AI no Mobile */
+  .ia-top-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .ia-recomendacao {
+    text-align: center;
+  }
+
+  .ia-alvos-grid {
+    grid-template-columns: 1fr; /* Alvos um embaixo do outro no mobile */
+  }
+
+  .ia-alvo-item {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10px 16px;
+  }
+
+  /* Ajustes para Recomendação de Entrada */
+  .entrada-header {
+    gap: 10px;
+  }
+
+  .entrada-icone {
+    font-size: 24px;
+  }
+
+  .entrada-titulo {
+    font-size: 16px;
+  }
+
+  .entrada-stats {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .entrada-stat {
+    min-width: calc(50% - 4px);
+  }
+
+  /* Painel de Venda Mobile */
+  .venda-alert-panel {
+    padding: 12px;
+  }
+
+  .venda-alert-titulo {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-row {
+    grid-template-columns: 1fr; /* Stats em uma única coluna em telas muito pequenas */
+  }
+  
+  .metrics-grid {
+    grid-template-columns: 1fr; /* Métricas em uma coluna para maximizar leitura */
+  }
 }
 
 /* ── TICKER FULL ── */
@@ -3111,5 +3244,54 @@ body::before {
   border: 1px solid rgba(255, 255, 255, 0.03);
   font-style: italic;
 }
+
+.ia-section {
+  margin-top: 12px;
+}
+
+.ia-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-purple);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  opacity: 0.8;
+}
+
+.ia-alvos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ia-alvo-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.alvo-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.alvo-value {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.ia-alvo-item.entrada .alvo-value { color: var(--accent-blue); }
+.ia-alvo-item.stop .alvo-value { color: var(--accent-red); }
+.ia-alvo-item.profit .alvo-value { color: var(--accent-green); }
 
 

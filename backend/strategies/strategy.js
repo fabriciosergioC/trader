@@ -54,7 +54,7 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, 
     // ── 3. ADX — FILTRO DE VOLATILIDADE ─────────────────────────────────────
     const adxValue = adx?.adx ?? 0;
     if (adxValue < 20) {
-        forca *= 0.5; // Reduz força se não houver tendência clara
+        forca *= 0.75; // Reduzido de 0.5 para 0.75 para ser menos punitivo com ativos de score alto
         avisos.push("⚠️ Baixa volatilidade/tendência (ADX < 20)");
     }
 

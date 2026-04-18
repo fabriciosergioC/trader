@@ -394,6 +394,7 @@ function VereditoIACard({ veredito }) {
                     <span className="ia-confianca">{veredito.confianca}% confiança</span>
                 )}
             </div>
+            
             <div className="veredito-ia-content">
                 <div className="ia-top-row">
                     <div className="ia-sentimento">
@@ -404,9 +405,44 @@ function VereditoIACard({ veredito }) {
                         {veredito.recomendacao}
                     </div>
                 </div>
-                <div className="ia-justificativa">
-                    {veredito.justificativa}
-                </div>
+
+                {/* Justificativa Técnica */}
+                {(veredito.justificativa_tecnica || veredito.justificativa) && (
+                    <div className="ia-section">
+                        <div className="ia-section-title">📊 Análise Técnica</div>
+                        <div className="ia-justificativa">
+                            {veredito.justificativa_tecnica || veredito.justificativa}
+                        </div>
+                    </div>
+                )}
+
+                {/* Justificativa de Contexto */}
+                {veredito.justificativa_contexto && (
+                    <div className="ia-section">
+                        <div className="ia-section-title">🌍 Contexto e Notícias</div>
+                        <div className="ia-justificativa">
+                            {veredito.justificativa_contexto}
+                        </div>
+                    </div>
+                )}
+
+                {/* Alvos Sugeridos */}
+                {veredito.alvos && (
+                    <div className="ia-alvos-grid">
+                        <div className="ia-alvo-item entrada">
+                            <span className="alvo-label">Entrada</span>
+                            <span className="alvo-value">R$ {fmt(veredito.alvos.entrada)}</span>
+                        </div>
+                        <div className="ia-alvo-item stop">
+                            <span className="alvo-label">Stop Loss</span>
+                            <span className="alvo-value">R$ {fmt(veredito.alvos.stop_loss)}</span>
+                        </div>
+                        <div className="ia-alvo-item profit">
+                            <span className="alvo-label">Take Profit</span>
+                            <span className="alvo-value">R$ {fmt(veredito.alvos.take_profit)}</span>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1442,9 +1478,9 @@ export default function Home() {
                                         <tbody>
                                             {oportunidades
                                                 .filter(o => {
-                                                    if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && o.confianca >= 60;
-                                                    if (subAbaOportunidades === "venda") return o.sinal === "VENDA" && o.confianca >= 60;
-                                                    return o.sinal === "NEUTRO" || o.confianca < 60;
+                                                    if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && (o.confianca >= 60 || o.score >= 6);
+                                                    if (subAbaOportunidades === "venda") return o.sinal === "VENDA" && (o.confianca >= 60 || o.sellScore >= 6);
+                                                    return (o.sinal === "NEUTRO" || (o.confianca < 60 && o.score < 6 && o.sellScore < 6));
                                                 })
                                                 .sort((a, b) => {
                                                     if (subAbaOportunidades === "compra") return b.score - a.score;

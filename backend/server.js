@@ -410,16 +410,54 @@ app.get("/oportunidades-compra", async (req, res) => {
             };
         });
 
-        // Retornar TODOS para o frontend filtrar
+        // Ordenar por maior probabilidade de compra
+        const ordenados = comScores.sort((a, b) => b.probabilidade - a.probabilidade);
+        
+        cachedOportunidades = ordenados;
+        oportunidadesTimestamp = agora;
+
         res.json({
-            ativos: comScores,
-            total: comScores.length,
+            ativos: ordenados.slice(0, limiteNum),
+            total: ordenados.length,
             timestamp: new Date(tsBase).toISOString(),
             cached: false
         });
     } catch (error) {
         console.error("Erro /oportunidades-compra:", error.message);
         res.status(500).json({ error: "Erro ao gerar oportunidades" });
+    }
+});
+
+// ── GET /analise-ia/:ticker — Análise profunda via Gemini AI ─────────────────
+app.get("/analise-ia/:ticker", async (req, res) => {
+    try {
+        const { ticker } = req.params;
+        const tickerUpper = ticker.toUpperCase();
+        const tickerFull = tickerUpper.includes('.SA') ? tickerUpper : `${tickerUpper}.SA`;
+
+        const macro = await getMacro();
+        // Forçamos skipNoticias = false para garantir que a IA seja chamada
+        const resultado = await analisarAtivo(tickerFull, macro, false);
+
+        if (resultado.erro) {
+            return res.status(400).json({ error: resultado.erro });
+        }
+
+        res.json({
+            ticker: resultado.ticker,
+            preco: resultado.preco,
+            veredito: resultado.vereditoIA,
+            indicadores: {
+                rsi: resultado.rsi,
+                adx: resultado.adx,
+                tendencia: resultado.detalhes?.tendencia,
+                forca: resultado.forca
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error("Erro /analise-ia:", error.message);
+        res.status(500).json({ error: "Erro ao gerar análise da IA" });
     }
 });
 
@@ -499,6 +537,11 @@ app.get("/analise-rapida", async (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-    console.log(`🚀 Backend rodando na porta ${PORT}`);
-    console.log(`📊 Total de ativos: ${TODOS_ATIVOS.length}`);
+    console.log(`\n🚀 Servidor Trading System rodando na porta ${PORT}`);
+    console.log(`📍 Endpoints disponíveis:`);
+    console.log(`   - GET /ativos`);
+    console.log(`   - GET /macro`);
+    console.log(`   - GET /analise?ativo=TICKER`);
+    console.log(`   - GET /analise-ia/TICKER`);
+    console.log(`   - GET /oportunidades-compra\n`);
 });
