@@ -34,3 +34,7 @@ Thumbs.db
 .qwen/
 .idea/
 .aider*
+.trae/
+
+# Project Specific
+skills/
