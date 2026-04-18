@@ -490,13 +490,27 @@ cron.schedule("*/10 9-18 * * 1-5", async () => {
     try {
         const macro = await getMacro();
         
-        // Varrer todos os ativos monitorados para não perder oportunidades
-        const resultados = await processarAtivosEmBatch(ATIVOS_VALIDOS, macro, 10, false); // false = busca notícias/IA
-
-        console.log(`✅ [CRON] Varredura concluída. ${resultados.length} ativos analisados.`);
+        // 1. Varredura Rápida (sem Gemini/Notícias) em todos os ativos
+        console.log(`📡 [CRON] Passo 1: Varredura rápida em ${ATIVOS_VALIDOS.length} ativos...`);
+        const varreduraRapida = await processarAtivosEmBatch(ATIVOS_VALIDOS, macro, 30, true);
         
-        // A função verificarAlerta já envia para o Telegram se encontrar sinais fortes
-        verificarAlerta(resultados);
+        // 2. Filtrar ativos com sinal de COMPRA e confiança >= 60%
+        const sinaisDetectados = varreduraRapida.filter(r => r.sinal === "COMPRA" && r.confianca >= 60);
+        console.log(`🎯 [CRON] Passo 2: ${sinaisDetectados.length} potenciais sinais detectados.`);
+
+        if (sinaisDetectados.length > 0) {
+            // 3. Análise Profunda (com Gemini/Notícias) APENAS nos ativos com sinal
+            console.log(`🤖 [CRON] Passo 3: Gerando análise Gemini para os sinais detectados...`);
+            const tickersSinais = sinaisDetectados.map(s => s.ticker);
+            const analiseProfunda = await processarAtivosEmBatch(tickersSinais, macro, 5, false);
+            
+            console.log(`✅ [CRON] Varredura e análise concluídas.`);
+            
+            // 4. Enviar para o Telegram
+            verificarAlerta(analiseProfunda);
+        } else {
+            console.log(`✅ [CRON] Varredura concluída. Nenhum sinal forte detectado.`);
+        }
 
     } catch (error) {
         console.error("❌ [CRON] Erro na varredura automática:", error.message);

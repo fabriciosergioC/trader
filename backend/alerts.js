@@ -37,7 +37,7 @@ function verificarAlerta(dados) {
         const score = d.score || (detalhes?.score);
 
         // 🟢 ALERTA DE COMPRA (Filtro ajustado para mais oportunidades)
-        if (sinal === "COMPRA" && confianca >= 65) {
+        if (sinal === "COMPRA" && confianca >= 60) {
             let msg = `<b>🚀 SINAL DE COMPRA: ${ticker.replace('.SA', '')}</b>\n\n` +
                       `💰 <b>Preço:</b> R$ ${preco.toFixed(2)}\n` +
                       `🔥 <b>Confiança:</b> ${confianca}%\n` +
