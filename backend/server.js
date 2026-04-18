@@ -509,13 +509,16 @@ cron.schedule("*/10 9-18 * * 1-5", async () => {
             console.log(`✅ [CRON] Varredura e análise concluídas.`);
             
             // 4. Enviar para o Telegram
-            verificarAlerta(analiseProfunda);
+            if (analiseProfunda.length > 0) {
+                console.log(`📤 [CRON] Enviando ${analiseProfunda.length} alertas para o Telegram...`);
+                verificarAlerta(analiseProfunda);
+            }
         } else {
             console.log(`✅ [CRON] Varredura concluída. Nenhum sinal forte detectado.`);
         }
 
     } catch (error) {
-        console.error("❌ [CRON] Erro na varredura automática:", error.message);
+        console.error("❌ [CRON] Erro crítico na varredura automática:", error.stack);
     }
 }, {
     scheduled: true,
