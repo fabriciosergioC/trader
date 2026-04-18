@@ -12,6 +12,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ── ENDPOINT DE SAÚDE (Para UptimeRobot / Keep-Alive) ────────────────────────
+app.get("/ping", (req, res) => {
+    res.status(200).send("pong 🚀");
+});
+
 // ═════════════════════════════════════════════════════════════════════════════
 // ── Lista completa de ativos da B3 (organizados por setor)
 // ═════════════════════════════════════════════════════════════════════════════
@@ -506,6 +511,15 @@ cron.schedule("*/15 9-18 * * 1-5", async () => {
 }, {
     scheduled: true,
     timezone: "America/Sao_Paulo"
+});
+
+// Auto-ping a cada 10 minutos para reforçar a atividade do servidor
+cron.schedule("*/10 * * * *", () => {
+    const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+    if (url) {
+        axios.get(`${url}/ping`).catch(() => {});
+        // console.log("📡 [AUTO-PING] Mantendo servidor ativo...");
+    }
 });
 
 // ── GET /analise-rapida — análise sem detalhes para performance ──────────────
