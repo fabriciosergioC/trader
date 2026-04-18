@@ -7,6 +7,10 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
+// ── Cache de alertas enviados para evitar spam (limpa a cada 4 horas por ativo) ──
+const alertasEnviados = new Map();
+const ALERTA_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 horas
+
 async function enviarParaTelegram(mensagem) {
     const token = process.env.TELEGRAM_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -32,12 +36,24 @@ async function enviarParaTelegram(mensagem) {
 function verificarAlerta(dados) {
     if (!Array.isArray(dados)) return;
 
+    const agora = Date.now();
+
     dados.forEach(d => {
         const { ticker, sinal, confianca, preco, detalhes, avisos, vereditoIA } = d;
         const score = d.score || (detalhes?.score);
 
+        // Chave única para evitar spam do mesmo ativo e mesmo sinal
+        const alertaKey = `${ticker}_${sinal}`;
+        const lastSent = alertasEnviados.get(alertaKey);
+
         // 🟢 ALERTA DE COMPRA (Filtro ajustado para mais oportunidades)
         if (sinal === "COMPRA" && confianca >= 60) {
+            // Se já enviamos este alerta nas últimas 4 horas, pulamos
+            if (lastSent && (agora - lastSent) < ALERTA_COOLDOWN_MS) {
+                // console.log(`⏩ [SKIP] Alerta de ${ticker} já enviado recentemente.`);
+                return;
+            }
+
             let msg = `<b>🚀 SINAL DE COMPRA: ${ticker.replace('.SA', '')}</b>\n\n` +
                       `💰 <b>Preço:</b> R$ ${preco.toFixed(2)}\n` +
                       `🔥 <b>Confiança:</b> ${confianca}%\n` +
@@ -58,10 +74,16 @@ function verificarAlerta(dados) {
             
             console.log('\x1b[32m%s\x1b[0m', `[ALERT] ${msg}`); // Verde no console
             enviarParaTelegram(msg);
+            alertasEnviados.set(alertaKey, agora); // Marcar como enviado
         }
 
         // 🔴 ALERTA DE VENDA / PROTEÇÃO
         if (detalhes?.alerta_venda?.ativo && detalhes.alerta_venda.nivel === 'ALTO') {
+            const vendaKey = `${ticker}_VENDA`;
+            const lastVenda = alertasEnviados.get(vendaKey);
+
+            if (lastVenda && (agora - lastVenda) < ALERTA_COOLDOWN_MS) return;
+
             const msg = `<b>🚨 ALERTA DE SAÍDA: ${ticker.replace('.SA', '')}</b>\n\n` +
                         `📉 <b>Preço:</b> R$ ${preco.toFixed(2)}\n` +
                         `⚠️ <b>Motivo:</b> ${detalhes.alerta_venda.motivos[0]}\n` +
@@ -70,6 +92,7 @@ function verificarAlerta(dados) {
             
             console.log('\x1b[31m%s\x1b[0m', `[ALERT] ${msg}`); // Vermelho no console
             enviarParaTelegram(msg);
+            alertasEnviados.set(vendaKey, agora); // Marcar como enviado
         }
     });
 }
