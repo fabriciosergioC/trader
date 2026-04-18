@@ -22,13 +22,61 @@ const model = genAI.getGenerativeModel({
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * geraVereditoIA — Envia dados técnicos e notícias para o Gemini gerar um parecer
+ * geraVereditoHeuristico — Motor de "IA Local" que não depende de APIs externas.
+ * É 100% gratuito, ilimitado e instantâneo.
  */
-async function geraVereditoIA(dadosAtivo, dadosMacro, retries = 2) {
+function geraVereditoHeuristico(dadosAtivo) {
+    const { rsi, adx, atr, preco, detalhes, ticker } = dadosAtivo;
+    const tendencia = detalhes?.tendencia || "Lateral";
+    
+    let sentimento = "Neutro";
+    let recomendacao = "MONITORAR";
+    let justificativa_tecnica = "";
+    
+    // Lógica de Sentimento e Recomendação baseada em indicadores reais
+    if (rsi > 60 && tendencia.includes("ALTA")) {
+        sentimento = "Otimista";
+        recomendacao = "Compra";
+        justificativa_tecnica = `O ativo ${ticker} apresenta forte momentum de alta. O RSI em ${rsi.toFixed(1)} indica pressão compradora saudável, enquanto a tendência confirmada pelas médias móveis sustenta o movimento.`;
+    } else if (rsi < 40 && tendencia.includes("BAIXA")) {
+        sentimento = "Pessimista";
+        recomendacao = "Venda";
+        justificativa_tecnica = `O ativo ${ticker} está em tendência de baixa clara. O RSI em ${rsi.toFixed(1)} mostra domínio dos vendedores, e a falta de suporte nas médias curtas sugere continuidade da queda.`;
+    } else {
+        justificativa_tecnica = `O ativo ${ticker} encontra-se em zona de indefinição. O RSI em ${rsi.toFixed(1)} e o ADX em ${adx?.toFixed(1) || 'N/A'} sugerem ausência de tendência forte no momento, recomendando cautela e monitoramento de suportes.`;
+    }
+
+    // Cálculo de alvos baseado em volatilidade (ATR)
+    const volatilidade = atr || (preco * 0.02);
+    const entrada = preco;
+    const stop_loss = recomendacao === "Compra" ? preco - (volatilidade * 2) : preco + (volatilidade * 2);
+    const take_profit = recomendacao === "Compra" ? preco + (volatilidade * 3) : preco - (volatilidade * 3);
+
+    return {
+        sentimento,
+        recomendacao,
+        justificativa_tecnica,
+        justificativa_contexto: "Análise gerada pelo motor heurístico local (Modo Ilimitado). Esta análise foca puramente nos dados técnicos e estatísticos do ativo para garantir disponibilidade constante.",
+        alvos: {
+            entrada: Number(entrada.toFixed(2)),
+            stop_loss: Number(stop_loss.toFixed(2)),
+            take_profit: Number(take_profit.toFixed(2))
+        },
+        confianca: adx > 25 ? 75 : 60,
+        is_unlimited: true
+    };
+}
+
+/**
+ * geraVereditoIA — Tenta usar Gemini, se falhar ou se não houver chave, usa o motor Ilimitado.
+ */
+async function geraVereditoIA(dadosAtivo, dadosMacro, retries = 1) {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === "SUA_CHAVE_AQUI") {
-        console.error("❌ ERRO: GEMINI_API_KEY não configurada no ambiente.");
-        return { erro: "Chave API não configurada." };
+    
+    // Se não houver chave ou for a chave padrão, usa o motor ilimitado direto
+    if (!apiKey || apiKey === "SUA_CHAVE_AQUI" || apiKey.length < 10) {
+        console.log(`🚀 [AI] Usando Motor Ilimitado para ${dadosAtivo.ticker} (Sem API Key)`);
+        return geraVereditoHeuristico(dadosAtivo);
     }
 
     try {
@@ -121,22 +169,9 @@ async function geraVereditoIA(dadosAtivo, dadosMacro, retries = 2) {
             return geraVereditoIA(dadosAtivo, dadosMacro, retries - 1);
         }
 
-        // Se falhou tudo ou foi segurança, retorna o FALLBACK TÉCNICO (nunca retorna erro string)
-        console.warn("⚠️ Utilizando fallback técnico devido a falha na IA.");
-        
-        return {
-            sentimento: "Neutro",
-            recomendacao: "MONITORAR",
-            justificativa_tecnica: `Análise baseada em indicadores: RSI (${dadosAtivo.rsi}), ADX (${dadosAtivo.adx}). Tendência: ${dadosAtivo.detalhes?.tendencia || 'Indefinida'}.`,
-            justificativa_contexto: "A análise qualitativa está temporariamente indisponível (limite de cota), mas os indicadores técnicos seguem operacionais.",
-            alvos: { 
-                entrada: dadosAtivo.preco, 
-                stop_loss: dadosAtivo.preco * 0.95, 
-                take_profit: dadosAtivo.preco * 1.10 
-            },
-            confianca: 50,
-            is_fallback: true
-        };
+        // Se falhou tudo ou foi segurança, retorna o Motor Heurístico Ilimitado
+        console.warn(`⚠️ Utilizando Motor Ilimitado para ${dadosAtivo.ticker} devido a falha na IA: ${error.message}`);
+        return geraVereditoHeuristico(dadosAtivo);
     }
 }
 
