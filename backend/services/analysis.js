@@ -4,6 +4,7 @@ const { buscarHistorico } = require('./yahooFetch');
 const { calcularIndicadores } = require("../utils/indicators");
 const { gerarSinal }          = require("../strategies/strategy");
 const { buscarNoticias }      = require("./news");
+const { geraVereditoIA }      = require("./aiService");
 
 
 // ── Cache local de notícias (evita buscas repetidas) ────────────────────────
@@ -76,8 +77,10 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
         fechamentoAnterior
     });
 
-    // ── Notícias apenas se solicitado (pula por padrão para performance) ─────
+    // ── Notícias e IA apenas se solicitado (pula por padrão para performance) ─────
     let noticias = [];
+    let vereditoIA = null;
+
     if (!skipNoticias) {
         const cacheKey = ticker;
         const cached = noticiasCache.get(cacheKey);
@@ -89,6 +92,17 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
             noticias = await buscarNoticias(ticker).catch(() => []);
             noticiasCache.set(cacheKey, { data: noticias, timestamp: now });
         }
+
+        // Chamar Gemini para análise qualitativa
+        vereditoIA = await geraVereditoIA({
+            ticker,
+            preco,
+            rsi,
+            adx: adx?.adx || 0,
+            atr: atr || 0,
+            detalhes: resultado.detalhes,
+            noticias
+        }, macro);
     }
 
     return {
@@ -116,8 +130,9 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
         confianca: resultado.confianca,
         avisos:    resultado.avisos,
         detalhes:  resultado.detalhes,
-        // Notícias
+        // Notícias e IA
         noticias,
+        vereditoIA
     };
 }
 

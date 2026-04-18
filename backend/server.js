@@ -186,7 +186,7 @@ let cachedAnaliseFull      = null;
 let analiseFullTimestamp   = 0;
 let cachedOportunidades    = null;
 let oportunidadesTimestamp = 0;
-const CACHE_ANALISE_MS     = 5 * 60 * 1000; 
+const CACHE_ANALISE_MS     = 1 * 60 * 1000; // Reduzido para 1 minuto para testes
 
 // ── Lista mestre de ativos (Unificada e Validada) ──────────────────────────────
 const ATIVOS_VALIDOS = [
@@ -342,22 +342,34 @@ app.get("/oportunidades-compra", async (req, res) => {
         let tsBase = 0;
 
         if (!force && cachedAnaliseFull && (agora - analiseFullTimestamp) < CACHE_ANALISE_MS) {
-            baseParaOportunidades = cachedAnaliseFull;
+            // Se temos o cache da análise rápida, usamos ele como base, 
+            // mas precisamos garantir que os campos necessários para o score existam
+            baseParaOportunidades = cachedAnaliseFull.map(r => ({
+                ticker: r.ticker,
+                preco: r.preco,
+                sinal: r.sinal,
+                confianca: r.confianca,
+                forca: r.forca || 0,
+                rsi: r.rsi || 50,
+                adx: r.adx || 0,
+                tendencia: r.tendencia || "NEUTRO"
+            }));
             tsBase = analiseFullTimestamp;
         }
 
         if (!baseParaOportunidades) {
-            console.log(`📊 Gerando base para oportunidades de compra...`);
+            console.log(`📊 Gerando base para oportunidades (Processando todos os ${ATIVOS_VALIDOS.length} ativos)...`);
             const macro = await getMacro();
-            const resultados = await processarAtivosEmBatch(ATIVOS_VALIDOS.slice(0, 60), macro, 30, true);
+            const resultados = await processarAtivosEmBatch(ATIVOS_VALIDOS, macro, 30, true);
+
             baseParaOportunidades = resultados.filter(r => !r.erro).map(r => ({
                 ticker: r.ticker,
                 preco: r.preco,
                 sinal: r.sinal,
                 confianca: r.confianca,
-                forca: r.forca,
-                rsi: r.rsi,
-                adx: r.adx,
+                forca: r.forca || 0,
+                rsi: r.rsi || 50,
+                adx: r.adx || 0,
                 tendencia: r.detalhes?.tendencia || "NEUTRO"
             }));
             tsBase = agora;
@@ -366,62 +378,42 @@ app.get("/oportunidades-compra", async (req, res) => {
         const comScores = baseParaOportunidades.map(ativo => {
             let score = 0;
             let motivoCompra = [];
-            let motivoAlerta = [];
+            let motivoVenda = [];
             let bloqueios = [];
 
-            if (ativo.sinal === "COMPRA") {
-                score += 35;
-                motivoCompra.push("Sinal técnico de COMPRA");
-            } else if (ativo.sinal === "VENDA") {
-                score -= 30;
-                motivoAlerta.push("Sinal técnico de VENDA");
-            }
+            // --- Lógica de COMPRA ---
+            if (ativo.sinal === "COMPRA") score += 35;
+            if (ativo.confianca >= 70) score += 25;
+            if (ativo.rsi < 35) score += 20;
+            if (ativo.adx > 25) score += 10;
+            if (ativo.tendencia === "ALTA") score += 10;
 
-            if (ativo.confianca >= 70) {
-                score += 25;
-                motivoCompra.push(`Confiança alta (${ativo.confianca}%)`);
-            } else if (ativo.confianca < 40) {
-                score -= 15;
-                bloqueios.push("Confiança insuficiente");
-            }
+            // --- Lógica de VENDA ---
+            let sellScore = 0;
+            if (ativo.sinal === "VENDA") sellScore += 35;
+            if (ativo.confianca >= 70) sellScore += 25;
+            if (ativo.rsi > 65) sellScore += 20;
+            if (ativo.adx > 25) sellScore += 10;
+            if (ativo.tendencia === "BAIXA") sellScore += 10;
 
-            if (ativo.rsi < 35) {
-                score += 20;
-                motivoCompra.push("RSI em sobrevenda");
-            } else if (ativo.rsi > 65) {
-                score -= 20;
-                bloqueios.push("RSI sobrecomprado");
-            }
-
-            if (ativo.adx > 25) {
-                score += 10;
-                motivoCompra.push("Tendência forte (ADX)");
-            }
-
-            const probabilidade = Math.max(0, Math.min(100, Math.round(score * 1.3)));
-            const bloqueado = bloqueios.length > 0;
+            const probCompra = Math.max(0, Math.min(100, Math.round(score * 1.3)));
+            const probVenda  = Math.max(0, Math.min(100, Math.round(sellScore * 1.3)));
 
             return {
                 ...ativo,
                 score,
-                probabilidade: bloqueado ? Math.min(probabilidade, 35) : probabilidade,
-                motivoCompra,
-                motivoAlerta,
-                bloqueios,
-                recomendacao: bloqueado ? "EVITAR" :
-                              probabilidade >= 75 ? "FORTE COMPRA" :
-                              probabilidade >= 55 ? "COMPRA" :
-                              probabilidade >= 35 ? "NEUTRO" : "EVITAR"
+                sellScore,
+                probabilidade: probCompra,
+                probabilidadeVenda: probVenda,
+                recomendacao: probCompra >= 70 ? "FORTE COMPRA" : probCompra >= 50 ? "COMPRA" : "NEUTRO",
+                recomendacaoVenda: probVenda >= 70 ? "FORTE VENDA" : probVenda >= 50 ? "VENDA" : "NEUTRO"
             };
         });
 
-        const ordenados = comScores.sort((a, b) => b.score - a.score);
-        cachedOportunidades = ordenados;
-        oportunidadesTimestamp = tsBase;
-
+        // Retornar TODOS para o frontend filtrar
         res.json({
-            ativos: ordenados.slice(0, limiteNum),
-            total: ordenados.length,
+            ativos: comScores,
+            total: comScores.length,
             timestamp: new Date(tsBase).toISOString(),
             cached: false
         });
@@ -452,6 +444,7 @@ app.get("/analise-rapida", async (req, res) => {
                 ativos: ativosPaginados,
                 macro: cachedMacro,
                 total: ativosFiltrados.length,
+                totalGeral: cachedAnaliseFull.length,
                 pagina: paginaNum,
                 limite: limiteNum,
                 totalPaginas: Math.ceil(ativosFiltrados.length / limiteNum),
@@ -490,6 +483,7 @@ app.get("/analise-rapida", async (req, res) => {
             ativos: ativosPaginados,
             macro,
             total: ativosFiltrados.length,
+            totalGeral: resultadosValidos.length,
             pagina: paginaNum,
             limite: limiteNum,
             totalPaginas: Math.ceil(ativosFiltrados.length / limiteNum),

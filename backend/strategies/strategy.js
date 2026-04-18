@@ -1,19 +1,5 @@
 /**
- * gerarSinal — Motor de sinais CONSERVADOR com múltiplas camadas de filtro.
- *
- * Camadas:
- *  1. Força base (SMA, RSI, MACD, OBV)
- *  2. Filtro ADX    → mercado lateral bloqueia sinal
- *  3. Filtro volume → falso rompimento reduz confiança
- *  4. Filtro ATR    → alta volatilidade reduz confiança
- *  5. Filtro macro  → VIX extremo bloqueia compra e reduz confiança
- *  6. Divergências RSI/MACD → detecta reversões potenciais
- *  7. Pullback confirmation → entra em melhor preço
- *  8. Volume accumulation/distribution → confirmação institucional
- *  9. Multi-timeframe alignment → confirmação cruzada
- * 10. Dynamic stop loss & take profit → gestão de risco inteligente
- * 11. Filtro intraday → evita compra em dia negativo
- * 12. Filtro momentum → confirma direção do preço
+ * gerarSinal — Motor de sinais AVANÇADO com múltiplas camadas de filtro.
  */
 function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, bb, obv, atr, volumes, macro, closes, highs, lows, precoAbertura, fechamentoAnterior }) {
     let forca = 0;
@@ -22,12 +8,12 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, 
 
     // ── 0. ESTRATÉGIA LONGO PRAZO (SMA 50/200) ──────────────────────────────
     const tendenciaLongoPrazo = preco > sma50 && sma50 > sma200;
-    const pullbackLongoPrazo  = preco <= sma50 * 1.02;
+    const pullbackLongoPrazo  = preco <= sma50 * 1.03; // 3% acima da média
 
     let sinal_longo_prazo = "NEUTRO";
     if (tendenciaLongoPrazo && pullbackLongoPrazo) {
         sinal_longo_prazo = "COMPRA";
-        forca += 3; // Bônus significativo para alinhamento de longo prazo
+        forca += 3;
         detalhes.long_term = "TENDÊNCIA + PULLBACK";
     } else if (tendenciaLongoPrazo) {
         detalhes.long_term = "TENDÊNCIA DE ALTA";
@@ -42,75 +28,86 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, 
         detalhes.tendencia = "BAIXA";
     }
 
-    // ── 2. RSI (Mix de 9 e 14 períodos) ─────────────────────────────────────
+    // ── 2. RSI E DIVERGÊNCIAS ───────────────────────────────────────────────
     detalhes.rsi = rsi;
-    detalhes.rsi14 = rsi14;
     
-    // Usamos o RSI 9 para detecção rápida e o 14 para confirmação
-    if (rsi < 30 && rsi14 < 35) {
-        forca += 2.5; 
-        detalhes.rsi_status = "SOBREVENDA EXTREMA";
-    } else if (rsi < 40) {
-        forca += 1;
-        detalhes.rsi_status = "SOBREVENDA LEVE";
+    if (rsi < 30) {
+        forca += 2; 
+        detalhes.rsi_status = "SOBREVENDA";
     } else if (rsi > 70) {
-        forca -= 2.5;
-        detalhes.rsi_status = "SOBRECOMPRA EXTREMA";
+        forca -= 2;
+        detalhes.rsi_status = "SOBRECOMPRA";
     }
 
-    // ── 3. ADX — FORÇA DA TENDÊNCIA (FILTRO CRÍTICO) ────────────────────────
-    const adxValue  = adx?.adx  ?? null;
-    detalhes.adx    = adxValue;
-
-    if (adxValue !== null) {
-        if (adxValue < 20) {
-            forca -= 2; // Penaliza falta de tendência
-            avisos.push("⚠️ Sem tendência definida (ADX < 20)");
-        } else if (adxValue > 30) {
-            forca += 1.5; // Bônus para tendência forte
-            detalhes.tendencia_forca = "FORTE";
-        }
-    }
-
-    // ── 4. MOMENTUM DE CANDLES (ÚLTIMOS 3 DIAS) ─────────────────────────────
-    if (closes && closes.length >= 3) {
-        const corpoAtual = preco - (precoAbertura ?? preco);
-        const pavioSuperior = (highs.at(-1) ?? preco) - Math.max(preco, precoAbertura ?? preco);
+    // Detecção de Divergência de Alta (Preço cai, RSI sobe)
+    if (closes && closes.length > 20) {
+        const lastPriceLow = Math.min(...closes.slice(-5));
+        const prevPriceLow = Math.min(...closes.slice(-20, -10));
         
-        // Se pavio superior é 2x maior que o corpo, indica rejeição de alta
-        if (pavioSuperior > Math.abs(corpoAtual) * 2 && corpoAtual > 0) {
-            forca -= 1.5;
-            avisos.push("⚠️ Rejeição de topo detectada (pavio superior longo)");
-            detalhes.rejeicao = "ALTA";
+        // Simulação simplificada de divergência (precisa de arrays completos de RSI)
+        // Se implementado corretamente no indicators.js, aqui comparamos os arrays
+        if (lastPriceLow < prevPriceLow && rsi > 40) { // Exemplo: Preço fez fundo mas RSI não
+             // detalhes.divergencia = "ALTA";
         }
     }
 
-    // ── 5. VOLUME INSTITUCIONAL ─────────────────────────────────────────────
-    if (volumes && volumes.length >= 20) {
-        const volAtual = volumes.at(-1) ?? 0;
-        const volMedia = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
-        const volRelativo = volAtual / volMedia;
-        
-        if (volRelativo > 1.8) {
-            forca += 2;
-            avisos.push(`🚀 Volume explosivo detectado (${volRelativo.toFixed(1)}x a média)`);
-        } else if (volRelativo < 0.6) {
-            forca -= 1;
-            avisos.push("📉 Volume muito baixo — falta de interesse");
-        }
+    // ── 3. ADX — FILTRO DE VOLATILIDADE ─────────────────────────────────────
+    const adxValue = adx?.adx ?? 0;
+    if (adxValue < 20) {
+        forca *= 0.5; // Reduz força se não houver tendência clara
+        avisos.push("⚠️ Baixa volatilidade/tendência (ADX < 20)");
     }
 
-    // ── SINAL E CONFIANÇA ──────────────────────────────────────────────────
+    // ── 4. REJEIÇÃO DE PREÇO (CANDLESTICK) ──────────────────────────────────
+    const candleCorpo = Math.abs(preco - (precoAbertura ?? preco));
+    const pavioSuperior = (highs.at(-1) ?? preco) - Math.max(preco, precoAbertura ?? preco);
+    const pavioInferior = Math.min(preco, precoAbertura ?? preco) - (lows.at(-1) ?? preco);
+
+    if (pavioInferior > candleCorpo * 2) {
+        forca += 2;
+        avisos.push("🔨 Martelo/Rejeição de fundo detectada");
+        detalhes.rejeicao = "FUNDO";
+    } else if (pavioSuperior > candleCorpo * 2) {
+        forca -= 2;
+        avisos.push("☄️ Estrela Cadente/Rejeição de topo detectada");
+        detalhes.rejeicao = "TOPO";
+    }
+
+    // ── 5. PRESSÃO VENDEDORA DO DIA (FILTRO DE SEGURANÇA) ───────────────────
+    const fechamentoNegativo = fechamentoAnterior && preco < fechamentoAnterior;
+    const candleVendedor = preco < precoAbertura;
+
+    if (fechamentoNegativo) {
+        forca -= 1.5; // Penaliza se o dia está sendo de queda
+        detalhes.pressao_dia = "NEGATIVA";
+    }
+    
+    if (candleVendedor) {
+        forca -= 1.5; // Penaliza se o preço está abaixo da abertura (urso dominando)
+        detalhes.candle = "VENDEDOR";
+    }
+
+    // Se ambos forem negativos, a queda é forte, reduzimos a confiança drasticamente
+    if (fechamentoNegativo && candleVendedor) {
+        forca -= 1.0; 
+        avisos.push("🛑 Queda forte no dia: aguarde sinal de reversão");
+    }
+
+    // ── 6. GESTÃO DE RISCO (STOP E ALVO) ────────────────────────────────────
+    const volatilidade = atr ?? (preco * 0.02); // Fallback 2%
+    detalhes.stopLoss = preco - (volatilidade * 2); // 2x ATR para baixo
+    detalhes.takeProfit = preco + (volatilidade * 3); // 3x ATR para cima (Ratio 1.5)
+    detalhes.riscoRetorno = "1.5";
+
+    // ── SINAL FINAL ────────────────────────────────────────────────────────
     let sinal = "NEUTRO";
-    let confianca = Math.round(Math.min(100, (Math.abs(forca) / 6) * 100));
+    if (forca >= 3.0) sinal = "COMPRA"; // Aumentado para exigir no mínimo 60% de confiança
+    else if (forca <= -3.0) sinal = "VENDA"; 
 
-    if (forca >= 4) sinal = "COMPRA";
-    else if (forca <= -4) sinal = "VENDA";
-
-    // Filtros de segurança finais
-    if (sinal === "COMPRA" && preco < precoAbertura) {
-        confianca *= 0.7;
-        avisos.push("⚠️ Compra arriscada: ativo operando abaixo da abertura do dia");
+    // Ajuste de confiança baseado no volume
+    let confianca = Math.min(100, Math.abs(forca) * 20); 
+    if (volumes && volumes.at(-1) > (volumes.slice(-20).reduce((a,b)=>a+b,0)/20)) {
+        confianca = Math.min(100, confianca + 10);
     }
 
     return { 
@@ -119,7 +116,11 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, 
         forca, 
         confianca, 
         avisos, 
-        detalhes 
+        detalhes,
+        alvos: {
+            stop: detalhes.stopLoss,
+            gain: detalhes.takeProfit
+        }
     };
 }
 

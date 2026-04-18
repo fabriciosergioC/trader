@@ -367,6 +367,51 @@ function MacroPanel({ macro }) {
     );
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// ── Componente: Veredito da IA (Gemini)
+// ═════════════════════════════════════════════════════════════════════════════
+function VereditoIACard({ veredito }) {
+    if (!veredito || veredito.erro) return null;
+
+    const sentimentoIcon = {
+        Otimista: "🚀",
+        Pessimista: "📉",
+        Neutro: "⚖️"
+    };
+
+    const recomendacaoClass = {
+        Compra: "bullish",
+        Venda: "bearish",
+        Aguardar: "neutral"
+    };
+
+    return (
+        <div className="veredito-ia-panel">
+            <div className="veredito-ia-header">
+                <span className="ia-icon">🤖</span>
+                <span className="ia-label">Análise Inteligente (Gemini AI)</span>
+                {veredito.confianca && (
+                    <span className="ia-confianca">{veredito.confianca}% confiança</span>
+                )}
+            </div>
+            <div className="veredito-ia-content">
+                <div className="ia-top-row">
+                    <div className="ia-sentimento">
+                        <span className="sentimento-icon">{sentimentoIcon[veredito.sentimento] || "⚖️"}</span>
+                        <span className="sentimento-label">{veredito.sentimento}</span>
+                    </div>
+                    <div className={`ia-recomendacao ${recomendacaoClass[veredito.recomendacao] || "neutral"}`}>
+                        {veredito.recomendacao}
+                    </div>
+                </div>
+                <div className="ia-justificativa">
+                    {veredito.justificativa}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Componente: Card de Notícias ──────────────────────────────────────────────
 function NoticiasCard({ noticias }) {
     const [aberto, setAberto] = useState(false);
@@ -600,6 +645,9 @@ function AssetCard({ d, idx }) {
                     ))}
                 </div>
             )}
+
+            {/* ── Veredito da IA ── */}
+            <VereditoIACard veredito={d.vereditoIA} />
 
             {/* ── Notícias ── */}
             <NoticiasCard noticias={d.noticias} />
@@ -898,6 +946,9 @@ export default function Home() {
     const [filtroSinal,    setFiltroSinal]    = useState("todos"); // todos, compra, venda, neutro
     const [modoVisualizacao, setModoVisualizacao] = useState("lista"); // lista, cards
     const [abaAtual,       setAbaAtual]       = useState("lista"); // lista, oportunidades
+    const [subAbaOportunidades, setSubAbaOportunidades] = useState("compra"); // compra, venda, aguardar
+    const [proximaAtualizacao, setProximaAtualizacao] = useState(60);
+    const [atualizando, setAtualizando] = useState(false);
 
     // Estado para oportunidades de compra
     const [oportunidades,  setOportunidades]  = useState([]);
@@ -906,6 +957,7 @@ export default function Home() {
     const [paginaAtual,    setPaginaAtual]    = useState(1);
     const [totalPaginas,   setTotalPaginas]   = useState(1);
     const [totalAtivos,    setTotalAtivos]    = useState(0);
+    const [totalGeral,     setTotalGeral]     = useState(0);
     const limitePorPagina = 50;
 
     // ── Carregar lista rápida de todos os ativos ──────────────────────────────
@@ -921,6 +973,7 @@ export default function Home() {
             setMacro(res.data.macro ?? null);
             setTotalPaginas(res.data.totalPaginas ?? 1);
             setTotalAtivos(res.data.total ?? 0);
+            setTotalGeral(res.data.totalGeral ?? 0);
             // Protege timestamp inválido
             const ts = res.data.timestamp ? new Date(res.data.timestamp) : new Date();
             setLastUpdate(ts);
@@ -1001,7 +1054,8 @@ export default function Home() {
     async function carregarOportunidades() {
         try {
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-            const res = await axios.get(`${API_URL}/oportunidades-compra?limite=30`);
+            // Busca todos os 150 ativos (limite alto para garantir lista completa)
+            const res = await axios.get(`${API_URL}/oportunidades-compra?limite=200`);
             setOportunidades(res.data.ativos ?? []);
         } catch (e) {
             console.error("Erro ao carregar oportunidades:", e);
@@ -1072,10 +1126,29 @@ export default function Home() {
         carregarOportunidades();
     }, []);
 
-    // Auto-refresh a cada 60 segundos
+    // ── Função para disparar atualização total ──
+    async function refrescarTudo() {
+        setAtualizando(true);
+        await Promise.all([
+            carregarListaRapida(),
+            carregarOportunidades()
+        ]);
+        setAtualizando(false);
+        setProximaAtualizacao(60);
+    }
+
+    // Gerenciador do Cronômetro de Atualização
     useEffect(() => {
-        const id = setInterval(carregarListaRapida, 60000);
-        return () => clearInterval(id);
+        const timer = setInterval(() => {
+            setProximaAtualizacao(prev => {
+                if (prev <= 1) {
+                    refrescarTudo();
+                    return 60;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timer);
     }, [paginaAtual, setorSelecionado]);
     
     // ── Mudar setor ───────────────────────────────────────────────────────────
@@ -1148,12 +1221,23 @@ export default function Home() {
                         <div className="logo-icon">📈</div>
                         <div>
                             <div className="header-title">TradeAI</div>
-                            <div className="header-subtitle">Painel de Análise B3 · {totalAtivos} ativos</div>
+                            <div className="header-subtitle">
+                                Painel de Análise B3 · {setorSelecionado === "todos" ? `${totalGeral} ativos` : `${totalAtivos} de ${totalGeral} ativos`}
+                            </div>
                         </div>
                     </div>
-                    <div className="status-badge">
-                        <span className="status-dot" />
-                        Ao Vivo · 60s
+                    <div className="header-right">
+                        <button 
+                            className={`btn-refrescar ${atualizando ? 'spinning' : ''}`}
+                            onClick={refrescarTudo}
+                            disabled={atualizando}
+                        >
+                            {atualizando ? '⌛' : '🔄'} {atualizando ? 'Atualizando...' : 'Atualizar Agora'}
+                        </button>
+                        <div className="status-badge">
+                            <span className={`status-dot ${atualizando ? 'active' : ''}`} />
+                            {atualizando ? 'Buscando...' : `Próxima att em ${proximaAtualizacao}s`}
+                        </div>
                     </div>
                 </header>
 
@@ -1170,32 +1254,56 @@ export default function Home() {
 
                         {/* ── Stats Gerais ── */}
                         <div className="stats-row stats-4-cols">
-                            <div className="stat-card">
+                            <div 
+                                className={`stat-card clickable ${abaAtual === "lista" ? "active" : ""}`}
+                                onClick={() => { setAbaAtual("lista"); setFiltroSinal("todos"); }}
+                            >
                                 <div className="stat-icon blue">🔍</div>
                                 <div>
-                                    <div className="stat-label">Total Ativos</div>
-                                    <div className="stat-value blue">{totalAtivos}</div>
+                                    <div className="stat-label">Total Geral</div>
+                                    <div className="stat-value blue">{totalGeral || oportunidades.length || 0}</div>
                                 </div>
                             </div>
-                            <div className="stat-card stat-green">
+                            <div 
+                                className={`stat-card stat-green clickable ${(abaAtual === "oportunidades" && subAbaOportunidades === "compra") ? "active" : ""}`}
+                                onClick={() => { setAbaAtual("oportunidades"); setSubAbaOportunidades("compra"); }}
+                            >
                                 <div className="stat-icon green">▲</div>
                                 <div>
                                     <div className="stat-label">Oportunidades Compra</div>
-                                    <div className="stat-value green">{listaRapida.filter(d => d.sinal === "COMPRA").length}</div>
+                                    <div className="stat-value green">
+                                        {oportunidades.length > 0 
+                                            ? oportunidades.filter(d => d.sinal === "COMPRA" && (d.confianca >= 60 || d.score >= 7)).length 
+                                            : <span className="loading-dots">Analisando...</span>}
+                                    </div>
                                 </div>
                             </div>
-                            <div className="stat-card stat-red">
+                            <div 
+                                className={`stat-card stat-red clickable ${(abaAtual === "oportunidades" && subAbaOportunidades === "venda") ? "active" : ""}`}
+                                onClick={() => { setAbaAtual("oportunidades"); setSubAbaOportunidades("venda"); }}
+                            >
                                 <div className="stat-icon red">▼</div>
                                 <div>
                                     <div className="stat-label">Oportunidades Venda</div>
-                                    <div className="stat-value red">{listaRapida.filter(d => d.sinal === "VENDA").length}</div>
+                                    <div className="stat-value red">
+                                        {oportunidades.length > 0 
+                                            ? oportunidades.filter(d => d.sinal === "VENDA" && (d.confianca >= 60 || d.sellScore >= 7)).length 
+                                            : <span className="loading-dots">Analisando...</span>}
+                                    </div>
                                 </div>
                             </div>
-                            <div className="stat-card">
+                            <div 
+                                className={`stat-card clickable ${(abaAtual === "oportunidades" && subAbaOportunidades === "aguardar") ? "active" : ""}`}
+                                onClick={() => { setAbaAtual("oportunidades"); setSubAbaOportunidades("aguardar"); }}
+                            >
                                 <div className="stat-icon" style={{ background: "rgba(148,163,184,.1)" }}>◆</div>
                                 <div>
                                     <div className="stat-label">Aguardando</div>
-                                    <div className="stat-value" style={{ color: "var(--text-secondary)" }}>{listaRapida.filter(d => d.sinal === "NEUTRO").length}</div>
+                                    <div className="stat-value" style={{ color: "var(--text-secondary)" }}>
+                                        {oportunidades.length > 0 
+                                            ? oportunidades.filter(d => d.sinal === "NEUTRO" || d.confianca < 60).length 
+                                            : <span className="loading-dots">Analisando...</span>}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1255,33 +1363,6 @@ export default function Home() {
                                     ))}
                                 </select>
                             </div>
-
-                            <div className="filtros-sinal">
-                                <button
-                                    className={`filtro-btn ${filtroSinal === "todos" ? "active" : ""}`}
-                                    onClick={() => setFiltroSinal("todos")}
-                                >
-                                    Todos ({listaRapida.length})
-                                </button>
-                                <button
-                                    className={`filtro-btn green ${filtroSinal === "compra" ? "active" : ""}`}
-                                    onClick={() => setFiltroSinal("compra")}
-                                >
-                                    ▲ Compra ({listaRapida.filter(d => d.sinal === "COMPRA").length})
-                                </button>
-                                <button
-                                    className={`filtro-btn red ${filtroSinal === "venda" ? "active" : ""}`}
-                                    onClick={() => setFiltroSinal("venda")}
-                                >
-                                    ▼ Venda ({listaRapida.filter(d => d.sinal === "VENDA").length})
-                                </button>
-                                <button
-                                    className={`filtro-btn blue ${filtroSinal === "neutro" ? "active" : ""}`}
-                                    onClick={() => setFiltroSinal("neutro")}
-                                >
-                                    ◆ Neutro ({listaRapida.filter(d => d.sinal === "NEUTRO").length})
-                                </button>
-                            </div>
                         </div>
 
                         {/* ── Abas de Navegação ── */}
@@ -1301,7 +1382,7 @@ export default function Home() {
                         </div>
 
                         {/* ═══════════════════════════════════════════════════════════════
-                            ABA: GUIA DE OPORTUNIDADES DE COMPRA
+                            ABA: GUIA DE OPORTUNIDADES
                             ═══════════════════════════════════════════════════════════════ */}
                         {abaAtual === "oportunidades" && (
                             <div className="oportunidades-section">
@@ -1311,25 +1392,32 @@ export default function Home() {
                                         <div>
                                             <h2 className="oport-section-title">
                                                 <span className="title-icon">🎯</span>
-                                                Guia de Oportunidades
+                                                Guia de Oportunidades ({totalGeral} ativos)
                                             </h2>
                                             <p className="oport-section-subtitle">
                                                 Ranking inteligente baseado em análise técnica multicamada
                                             </p>
                                         </div>
-                                        <div className="oport-legend">
-                                            <div className="legend-item">
-                                                <span className="legend-dot forte-compra"></span>
-                                                <span>Forte Compra (≥70%)</span>
-                                            </div>
-                                            <div className="legend-item">
-                                                <span className="legend-dot compra"></span>
-                                                <span>Compra (50-69%)</span>
-                                            </div>
-                                            <div className="legend-item">
-                                                <span className="legend-dot neutro"></span>
-                                                <span>Neutro (30-49%)</span>
-                                            </div>
+                                        
+                                        <div className="sub-abas-oport">
+                                            <button 
+                                                className={`sub-aba-btn compra ${subAbaOportunidades === "compra" ? "active" : ""}`}
+                                                onClick={() => setSubAbaOportunidades("compra")}
+                                            >
+                                                📈 Melhores Compras ({oportunidades.filter(o => o.sinal === "COMPRA" && o.confianca >= 60).length})
+                                            </button>
+                                            <button 
+                                                className={`sub-aba-btn venda ${subAbaOportunidades === "venda" ? "active" : ""}`}
+                                                onClick={() => setSubAbaOportunidades("venda")}
+                                            >
+                                                📉 Melhores Vendas ({oportunidades.filter(o => o.sinal === "VENDA" && o.confianca >= 60).length})
+                                            </button>
+                                            <button 
+                                                className={`sub-aba-btn neutro ${subAbaOportunidades === "aguardar" ? "active" : ""}`}
+                                                onClick={() => setSubAbaOportunidades("aguardar")}
+                                            >
+                                                ◆ Aguardando ({oportunidades.filter(o => o.sinal === "NEUTRO" || o.confianca < 60).length})
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -1349,16 +1437,28 @@ export default function Home() {
                                                 <th className="th-adx">ADX</th>
                                                 <th className="th-conf">Confiança</th>
                                                 <th className="th-tendencia">Tendência</th>
-                                                <th className="th-signals">Sinais</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {oportunidades
-                                                .filter(o => o.probabilidade >= 30) // Mostrar apenas oportunidades relevantes
+                                                .filter(o => {
+                                                    if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && o.confianca >= 60;
+                                                    if (subAbaOportunidades === "venda") return o.sinal === "VENDA" && o.confianca >= 60;
+                                                    return o.sinal === "NEUTRO" || o.confianca < 60;
+                                                })
+                                                .sort((a, b) => {
+                                                    if (subAbaOportunidades === "compra") return b.score - a.score;
+                                                    if (subAbaOportunidades === "venda") return b.sellScore - a.sellScore;
+                                                    return b.confianca - a.confianca;
+                                                })
                                                 .map((ativo, idx) => {
-                                                    const probClass = ativo.probabilidade >= 70 ? 'forte-compra' : 
-                                                                    ativo.probabilidade >= 50 ? 'compra' : 
-                                                                    ativo.probabilidade >= 30 ? 'neutro' : 'evitar';
+                                                    const prob = (subAbaOportunidades === "compra" ? ativo.probabilidade : ativo.probabilidadeVenda) ?? 0;
+                                                    const rec = (subAbaOportunidades === "compra" ? ativo.recomendacao : ativo.recomendacaoVenda) ?? "NEUTRO";
+                                                    const score = (subAbaOportunidades === "compra" ? ativo.score : ativo.sellScore) ?? 0;
+                                                    
+                                                    const probClass = subAbaOportunidades === "compra" 
+                                                        ? (prob >= 70 ? 'forte-compra' : prob >= 50 ? 'compra' : 'neutro')
+                                                        : (prob >= 70 ? 'forte-venda' : prob >= 50 ? 'venda' : 'neutro');
                                                     
                                                     return (
                                                         <tr 
@@ -1377,23 +1477,23 @@ export default function Home() {
                                                             </td>
                                                             <td className="td-prob">
                                                                 <div className="prob-cell">
-                                                                    <div className="prob-value-text">{ativo.probabilidade}%</div>
+                                                                    <div className="prob-value-text">{prob}%</div>
                                                                     <div className="prob-bar-bg">
                                                                         <div 
                                                                             className={`prob-bar-fill ${probClass}`}
-                                                                            style={{ width: `${ativo.probabilidade}%` }}
+                                                                            style={{ width: `${prob}%` }}
                                                                         />
                                                                     </div>
                                                                 </div>
                                                             </td>
                                                             <td className="td-rec">
                                                                 <span className={`rec-badge ${probClass}`}>
-                                                                    {ativo.recomendacao}
+                                                                    {rec}
                                                                 </span>
                                                             </td>
                                                             <td className="td-score">
-                                                                <span className={`score-value ${ativo.score >= 5 ? 'positive' : ativo.score <= 0 ? 'negative' : 'neutral'}`}>
-                                                                    {ativo.score >= 0 ? '+' : ''}{ativo.score}
+                                                                <span className={`score-value ${score >= 5 ? 'positive' : score <= 0 ? 'negative' : 'neutral'}`}>
+                                                                    {score >= 0 ? '+' : ''}{score}
                                                                 </span>
                                                             </td>
                                                             <td className="td-rsi">
@@ -1415,88 +1515,11 @@ export default function Home() {
                                                                      ativo.tendencia === 'BAIXA' ? '▼ Baixa' : '◆ Neutro'}
                                                                 </span>
                                                             </td>
-                                                            <td className="td-signals">
-                                                                <div className="signals-container">
-                                                                    {ativo.motivoCompra?.length > 0 && (
-                                                                        <span className="signal-buy">+{ativo.motivoCompra.length}</span>
-                                                                    )}
-                                                                    {ativo.motivoAlerta?.length > 0 && (
-                                                                        <span className="signal-alert">⚠{ativo.motivoAlerta.length}</span>
-                                                                    )}
-                                                                </div>
-                                                            </td>
                                                         </tr>
                                                     );
                                                 })}
                                         </tbody>
                                     </table>
-                                </div>
-
-                                {/* Cards Grid para visual mobile */}
-                                <div className="oport-cards-grid">
-                                    {oportunidades
-                                        .filter(o => o.probabilidade >= 50) // Mostrar apenas boas oportunidades nos cards
-                                        .slice(0, 12) // Top 12
-                                        .map((ativo, idx) => {
-                                            const probClass = ativo.probabilidade >= 70 ? 'forte-compra' : 'compra';
-                                            
-                                            return (
-                                                <div
-                                                    key={ativo.ticker}
-                                                    className={`oport-card ${probClass}`}
-                                                    onClick={() => verDetalhes(ativo.ticker)}
-                                                >
-                                                    <div className="card-top-row">
-                                                        <span className="card-rank">#{idx + 1}</span>
-                                                        <span className={`card-badge ${probClass}`}>
-                                                            {ativo.recomendacao}
-                                                        </span>
-                                                    </div>
-                                                    <div className="card-ticker">{ativo.ticker.replace(".SA", "")}</div>
-                                                    <div className="card-price">R$ {fmt(ativo.preco)}</div>
-                                                    
-                                                    <div className="card-prob-section">
-                                                        <div className="card-prob-header">
-                                                            <span className="card-prob-label">Probabilidade</span>
-                                                            <span className="card-prob-value">{ativo.probabilidade}%</span>
-                                                        </div>
-                                                        <div className="card-prob-bar">
-                                                            <div 
-                                                                className={`card-prob-fill ${probClass}`}
-                                                                style={{ width: `${ativo.probabilidade}%` }}
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="card-stats">
-                                                        <div className="card-stat">
-                                                            <div className="card-stat-label">RSI</div>
-                                                            <div className={`card-stat-value ${ativo.rsi < 30 ? 'green' : ativo.rsi > 70 ? 'red' : ''}`}>
-                                                                {fmt(ativo.rsi)}
-                                                            </div>
-                                                        </div>
-                                                        <div className="card-stat">
-                                                            <div className="card-stat-label">ADX</div>
-                                                            <div className="card-stat-value">{fmt(ativo.adx, 1)}</div>
-                                                        </div>
-                                                        <div className="card-stat">
-                                                            <div className="card-stat-label">Score</div>
-                                                            <div className={`card-stat-value score-${ativo.score >= 0 ? 'pos' : 'neg'}`}>
-                                                                {ativo.score >= 0 ? '+' : ''}{ativo.score}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {ativo.motivoCompra?.length > 0 && (
-                                                        <div className="card-signals">
-                                                            {ativo.motivoCompra.slice(0, 2).map((m, i) => (
-                                                                <span key={i} className="card-signal-tag">✓ {m}</span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
                                 </div>
                             </div>
                         )}
