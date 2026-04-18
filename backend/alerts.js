@@ -20,6 +20,9 @@ async function enviarParaTelegram(mensagem) {
         return;
     }
 
+    // Log para depuração (mascarado por segurança)
+    console.log(`📤 Tentando enviar sinal para o Telegram (Token: ${token.substring(0, 5)}..., Chat: ${chatId.substring(0, 3)}...)`);
+
     try {
         await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
             chat_id: chatId,
@@ -27,9 +30,9 @@ async function enviarParaTelegram(mensagem) {
             parse_mode: 'HTML',
             disable_web_page_preview: false
         });
-        console.log('✅ Alerta enviado para o Telegram!');
+        console.log('✅ Alerta enviado para o Telegram com sucesso!');
     } catch (error) {
-        console.error('❌ Erro ao enviar para o Telegram:', error.response?.data || error.message);
+        console.error('❌ Erro da API do Telegram:', error.response?.data || error.message);
     }
 }
 
@@ -37,25 +40,32 @@ function verificarAlerta(dados) {
     if (!Array.isArray(dados)) return;
 
     const agora = Date.now();
+    console.log(`🔍 [ALERTS] Verificando ${dados.length} ativos para possíveis alertas...`);
 
     dados.forEach(d => {
         const { ticker, sinal, confianca, preco, detalhes, avisos, vereditoIA, recomendacao } = d;
-        const score = d.score || (detalhes?.score);
+        const score = d.score || (detalhes?.score) || (recomendacao?.score);
 
         // Chave única para evitar spam do mesmo ativo e mesmo sinal
         const alertaKey = `${ticker}_${sinal}`;
         const lastSent = alertasEnviados.get(alertaKey);
 
         // 🟢 ALERTA DE COMPRA (Filtro agora sincronizado com o Veredito de Entrada)
+        const tipoRec = recomendacao?.tipo || "N/A";
         const podeEnviar = recomendacao && (recomendacao.tipo === "ENTRAR" || recomendacao.tipo === "ENTRAR COM CAUTELA");
+
+        console.log(`   - ${ticker}: Sinal=${sinal}, Confiança=${confianca}%, Rec=${tipoRec}, PodeEnviar=${podeEnviar}`);
 
         if (sinal === "COMPRA" && podeEnviar) {
             // Se já enviamos este alerta nas últimas 4 horas, pulamos
             if (lastSent && (agora - lastSent) < ALERTA_COOLDOWN_MS) {
+                console.log(`   - ${ticker}: Ignorado (Cooldown ativo)`);
                 return;
             }
 
-            let msg = `<b>${recomendacao.icone} ${recomendacao.tipo}: ${ticker.replace('.SA', '')}</b>\n\n` +
+            console.log(`   - ${ticker}: GERANDO MENSAGEM PARA TELEGRAM!`);
+            
+            let msg = `<b>${recomendacao.icone || '✅'} ${recomendacao.tipo}: ${ticker.replace('.SA', '')}</b>\n\n` +
                       `💰 <b>Preço:</b> R$ ${preco.toFixed(2)}\n` +
                       `🔥 <b>Confiança:</b> ${confianca}%\n` +
                       `📊 <b>Score Técnico:</b> ${score > 0 ? '+' : ''}${score}\n`;
