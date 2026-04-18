@@ -418,6 +418,12 @@ function AssetCard({ d, idx }) {
                     <span>{SIGNAL_ICON[d.sinal] ?? "◆"}</span>
                     {d.sinal ?? "NEUTRO"}
                 </div>
+                {d.sinal_longo_prazo === "COMPRA" && (
+                    <div className="signal-badge COMPRA" style={{ background: '#7e22ce', marginLeft: '5px' }}>
+                        <span>💎</span>
+                        LONGO PRAZO
+                    </div>
+                )}
             </div>
 
             {/* ── Preço ── */}
@@ -494,7 +500,16 @@ function AssetCard({ d, idx }) {
                     <div className="metric-value">{fmt(d.sma9)} / {fmt(d.sma21)}</div>
                     {d.sma9 && d.sma21 && (
                         <div className={`sma-status ${d.sma9 > d.sma21 ? 'positive' : 'negative'}`}>
-                            {d.sma9 > d.sma21 ? '▲ Positiva (Alta)' : '▼ Negativa (Baixa)'}
+                            {d.sma9 > d.sma21 ? '▲ Positiva' : '▼ Negativa'}
+                        </div>
+                    )}
+                </div>
+                <div className="metric">
+                    <div className="metric-label">SMA 50 / 200</div>
+                    <div className="metric-value">{fmt(d.sma50)} / {fmt(d.sma200)}</div>
+                    {d.sma50 && d.sma200 && (
+                        <div className={`sma-status ${d.sma50 > d.sma200 ? 'positive' : 'negative'}`}>
+                            {d.sma50 > d.sma200 ? '📈 Longo Prazo: Alta' : '📉 Longo Prazo: Baixa'}
                         </div>
                     )}
                 </div>
@@ -600,6 +615,15 @@ function analisarEntrada(d) {
     let pontosPositivos = 0;
     let pontosNegativos = 0;
     let bloqueadores = [];
+
+    // 0. Sinal de Longo Prazo (SMA 50/200) - ALTO PESO
+    if (d.sinal_longo_prazo === "COMPRA") {
+        pontosPositivos += 4;
+        pontos.push({ tipo: "positivo", texto: "💎 Forte tendência de LONGO PRAZO (SMA 50/200)" });
+    } else if (d.sma50 > d.sma200) {
+        pontosPositivos += 1;
+        pontos.push({ tipo: "positivo", texto: "Tendência macro de alta (SMA 50 > 200)" });
+    }
 
     // 1. Sinal base
     if (d.sinal === "COMPRA") {

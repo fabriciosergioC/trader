@@ -1,0 +1,27 @@
+//@version=5
+indicator("Entrada Longo Prazo (SMA 50/200)", overlay=true)
+
+// Configuração das Médias
+ma50 = ta.sma(close, 50)
+ma200 = ta.sma(close, 200)
+
+// Lógica de Tendência e Pullback
+tendencia = close > ma50 and ma50 > ma200
+pullback = close <= ma50 * 1.02 // Dentro de 2% da média de 50
+
+entrada = tendencia and pullback
+
+// Cores e Plots
+plot(ma50, color=color.blue, title="SMA 50")
+plot(ma200, color=color.orange, title="SMA 200", linewidth=2)
+
+// Sinais visuais
+plotshape(entrada, 
+     location=location.belowbar, 
+     color=color.new(color.green, 0), 
+     style=shape.triangleup, 
+     size=size.small, 
+     title="Compra Longo Prazo")
+
+// Alertas
+alertcondition(entrada, title="Sinal de Compra Longo Prazo", message="Estratégia Longo Prazo: Tendência de Alta + Pullback detectado!")

@@ -33,4 +33,28 @@ async function sincronizarAtivo(analise) {
     }
 }
 
-module.exports = { sincronizarAtivo };
+/**
+ * Salva um trade específico na tabela de histórico
+ */
+async function salvarTrade(trade) {
+    try {
+        const { error } = await supabase
+            .from('trades')
+            .insert([{
+                ativo:   trade.ticker,
+                sinal:   trade.sinal,
+                preco:   trade.preco,
+                sma50:   trade.sma50,
+                sma200:  trade.sma200,
+                detalhes: trade.detalhes
+            }]);
+
+        if (error) throw error;
+        console.log(`📡 Sinal de ${trade.ticker} salvo em 'trades'`);
+    } catch (error) {
+        console.error(`❌ Erro ao salvar trade de ${trade.ticker}:`, error.message);
+    }
+}
+
+module.exports = { sincronizarAtivo, salvarTrade };
+

@@ -6,6 +6,8 @@ function calcularIndicadores(closes, highs, lows, volumes) {
         rsi14: RSI.calculate({ values: closes, period: 14 }),
         sma9: SMA.calculate({ values: closes, period: 9 }),
         sma21: SMA.calculate({ values: closes, period: 21 }),
+        sma50: SMA.calculate({ values: closes, period: 50 }),
+        sma200: SMA.calculate({ values: closes, period: 200 }),
         macd: MACD.calculate({
             values: closes,
             fastPeriod: 12,

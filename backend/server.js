@@ -5,7 +5,7 @@ const cors    = require("cors");
 const { analisarAtivo }    = require("./services/analysis");
 const { verificarAlerta }  = require("./alerts");
 const { buscarContextoMacro } = require("./services/contextMacro");
-const { sincronizarAtivo } = require("./services/supabase");
+const { sincronizarAtivo, salvarTrade } = require("./services/supabase");
 
 const app = express();
 app.use(cors());
@@ -292,7 +292,21 @@ app.get("/analise", async (req, res) => {
 
         // Sincronizar com Supabase em background
         resultados.forEach(res => {
-            if (!res.erro) sincronizarAtivo(res);
+            if (!res.erro) {
+                sincronizarAtivo(res);
+                
+                // Salvar sinal de longo prazo se detectado
+                if (res.sinal_longo_prazo === "COMPRA") {
+                    salvarTrade({
+                        ticker: res.ticker,
+                        sinal:  res.sinal_longo_prazo,
+                        preco:  res.preco,
+                        sma50:  res.sma50,
+                        sma200: res.sma200,
+                        detalhes: res.detalhes
+                    });
+                }
+            }
         });
 
         verificarAlerta(resultados);

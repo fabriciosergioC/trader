@@ -15,14 +15,27 @@
  * 11. Filtro intraday → evita compra em dia negativo
  * 12. Filtro momentum → confirma direção do preço
  */
-function gerarSinal({ preco, rsi, rsi14, sma9, sma21, macd, adx, bb, obv, atr, volumes, macro, closes, highs, lows, precoAbertura, fechamentoAnterior }) {
+function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, bb, obv, atr, volumes, macro, closes, highs, lows, precoAbertura, fechamentoAnterior }) {
     let forca = 0;
     const avisos  = [];
     const detalhes = {};
 
-    // ── 1. TENDÊNCIA (SMA 9 vs 21) ──────────────────────────────────────────
+    // ── 0. ESTRATÉGIA LONGO PRAZO (SMA 50/200) ──────────────────────────────
+    const tendenciaLongoPrazo = preco > sma50 && sma50 > sma200;
+    const pullbackLongoPrazo  = preco <= sma50 * 1.02;
+
+    let sinal_longo_prazo = "NEUTRO";
+    if (tendenciaLongoPrazo && pullbackLongoPrazo) {
+        sinal_longo_prazo = "COMPRA";
+        forca += 3; // Bônus significativo para alinhamento de longo prazo
+        detalhes.long_term = "TENDÊNCIA + PULLBACK";
+    } else if (tendenciaLongoPrazo) {
+        detalhes.long_term = "TENDÊNCIA DE ALTA";
+    }
+
+    // ── 1. TENDÊNCIA MÉDIO PRAZO (SMA 9 vs 21) ──────────────────────────────
     if (sma9 > sma21) {
-        forca += 1.5; // Aumentado peso da tendência
+        forca += 1.5; 
         detalhes.tendencia = "ALTA";
     } else {
         forca -= 1.5;
@@ -61,8 +74,8 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, macd, adx, bb, obv, atr, v
 
     // ── 4. MOMENTUM DE CANDLES (ÚLTIMOS 3 DIAS) ─────────────────────────────
     if (closes && closes.length >= 3) {
-        const corpoAtual = preco - (opens.at(-1) ?? preco);
-        const pavioSuperior = (highs.at(-1) ?? preco) - Math.max(preco, opens.at(-1) ?? preco);
+        const corpoAtual = preco - (precoAbertura ?? preco);
+        const pavioSuperior = (highs.at(-1) ?? preco) - Math.max(preco, precoAbertura ?? preco);
         
         // Se pavio superior é 2x maior que o corpo, indica rejeição de alta
         if (pavioSuperior > Math.abs(corpoAtual) * 2 && corpoAtual > 0) {
@@ -100,7 +113,14 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, macd, adx, bb, obv, atr, v
         avisos.push("⚠️ Compra arriscada: ativo operando abaixo da abertura do dia");
     }
 
-    return { sinal, forca, confianca, avisos, detalhes };
+    return { 
+        sinal, 
+        sinal_longo_prazo, 
+        forca, 
+        confianca, 
+        avisos, 
+        detalhes 
+    };
 }
 
 module.exports = { gerarSinal };
