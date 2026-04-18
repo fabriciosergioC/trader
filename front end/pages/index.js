@@ -1165,12 +1165,25 @@ export default function Home() {
     // ── Função para disparar atualização total ──
     async function refrescarTudo() {
         setAtualizando(true);
-        await Promise.all([
-            carregarListaRapida(),
-            carregarOportunidades()
-        ]);
-        setAtualizando(false);
-        setProximaAtualizacao(60);
+        try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+            
+            // Forçar atualização no backend limpando o cache
+            await axios.get(`${API_URL}/analise?force=true&limite=1`);
+            
+            // Recarregar os dados no frontend
+            await Promise.all([
+                carregarListaRapida(),
+                carregarOportunidades()
+            ]);
+            
+            setLastUpdate(new Date());
+        } catch (e) {
+            console.error("Erro ao refrescar dados:", e);
+        } finally {
+            setAtualizando(false);
+            setProximaAtualizacao(60);
+        }
     }
 
     // Gerenciador do Cronômetro de Atualização

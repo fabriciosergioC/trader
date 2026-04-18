@@ -270,7 +270,18 @@ app.get("/ativos", (req, res) => {
 // ── GET /analise — análise completa dos ativos ───────────────────────────────
 app.get("/analise", async (req, res) => {
     try {
-        const { setor, ativo } = req.query;
+        const { setor, ativo, force } = req.query;
+
+        // Limpar cache se solicitado
+        if (force === "true") {
+            cachedAnaliseFull = null;
+            analiseFullTimestamp = 0;
+            cachedOportunidades = null;
+            oportunidadesTimestamp = 0;
+            cachedMacro = null;
+            macroTimestamp = 0;
+            console.log("♻️ Cache limpo via force update");
+        }
 
         // Determinar quais ativos analisar
         let ativosParaAnalisar = TODOS_ATIVOS; // Default: todos
