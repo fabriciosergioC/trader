@@ -36,9 +36,9 @@ function verificarAlerta(dados) {
         const { ticker, sinal, confianca, preco, detalhes, avisos, vereditoIA } = d;
         const score = d.score || (detalhes?.score);
 
-        // 🟢 ALERTA DE COMPRA FORTE (O "Momento Certo")
-        if (sinal === "COMPRA" && confianca >= 75) {
-            let msg = `<b>🚀 OPORTUNIDADE DE COMPRA: ${ticker.replace('.SA', '')}</b>\n\n` +
+        // 🟢 ALERTA DE COMPRA (Filtro ajustado para mais oportunidades)
+        if (sinal === "COMPRA" && confianca >= 65) {
+            let msg = `<b>🚀 SINAL DE COMPRA: ${ticker.replace('.SA', '')}</b>\n\n` +
                       `💰 <b>Preço:</b> R$ ${preco.toFixed(2)}\n` +
                       `🔥 <b>Confiança:</b> ${confianca}%\n` +
                       `📊 <b>Score Técnico:</b> ${score > 0 ? '+' : ''}${score}\n`;

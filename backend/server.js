@@ -482,23 +482,16 @@ app.get("/analise-ia/:ticker", async (req, res) => {
 // ── Agendador Automático (CRON)
 // ═════════════════════════════════════════════════════════════════════════════
 
-// Varrer o mercado a cada 15 minutos em busca de sinais fortes
+// Varrer o mercado a cada 10 minutos em busca de sinais fortes
 // Executa de Segunda a Sexta, das 09h às 18h (Horário de Brasília/Mercado)
-cron.schedule("*/15 9-18 * * 1-5", async () => {
+cron.schedule("*/10 9-18 * * 1-5", async () => {
     console.log(`\n⏰ [CRON] Iniciando varredura automática de mercado (${new Date().toLocaleTimeString()})...`);
     
     try {
         const macro = await getMacro();
         
-        // Vamos varrer os ativos principais para não sobrecarregar
-        // Usamos uma lista menor para ser mais rápido e eficiente na varredura automática
-        const ativosPrincipais = [
-            "PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "BBAS3.SA", 
-            "ABEV3.SA", "WEGE3.SA", "RENT3.SA", "MGLU3.SA", "SUZB3.SA"
-        ];
-
-        // Se quiser varrer TODOS, use TODOS_ATIVOS, mas cuidado com rate limits
-        const resultados = await processarAtivosEmBatch(ativosPrincipais, macro, 5, false); // false = busca notícias/IA
+        // Varrer todos os ativos monitorados para não perder oportunidades
+        const resultados = await processarAtivosEmBatch(ATIVOS_VALIDOS, macro, 10, false); // false = busca notícias/IA
 
         console.log(`✅ [CRON] Varredura concluída. ${resultados.length} ativos analisados.`);
         
