@@ -63,9 +63,29 @@ async function geraVereditoIA(dadosAtivo, dadosMacro) {
         const response = await result.response;
         const text = response.text();
         
-        // Limpar a resposta caso a IA coloque markdown de código
-        const jsonStr = text.replace(/```json|```/g, "").trim();
-        return JSON.parse(jsonStr);
+        // Limpeza agressiva da resposta da IA para garantir JSON válido
+        let jsonStr = text.replace(/```json|```/g, "").trim();
+        
+        // Tentar extrair apenas o conteúdo entre chaves se houver lixo antes/depois
+        const match = jsonStr.match(/\{[\s\S]*\}/);
+        if (match) {
+            jsonStr = match[0];
+        }
+
+        try {
+            return JSON.parse(jsonStr);
+        } catch (e) {
+            console.error("Erro ao fazer parse do JSON da IA:", e.message, "Texto:", text);
+            // Fallback caso a IA retorne algo inválido
+            return {
+                sentimento: "Neutro",
+                recomendacao: "Aguardar",
+                justificativa_tecnica: "Análise técnica prejudicada por falha na IA.",
+                justificativa_contexto: "Ocorreu um erro no processamento da inteligência artificial.",
+                alvos: { entrada: dadosAtivo.preco, stop_loss: dadosAtivo.preco * 0.95, take_profit: dadosAtivo.preco * 1.10 },
+                confianca: 50
+            };
+        }
     } catch (error) {
         console.error("Erro no Gemini AI:", error.message);
         return { erro: "Falha ao gerar veredito da IA" };
