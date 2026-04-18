@@ -3167,6 +3167,19 @@ body::before {
   color: var(--accent-purple);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fallback-badge {
+  font-size: 9px;
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  font-weight: 900;
 }
 
 .ia-confianca {

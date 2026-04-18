@@ -1,17 +1,34 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
 require("dotenv").config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+
+// Configuração de segurança para evitar bloqueios desnecessários em termos técnicos/financeiros
+const safetySettings = [
+    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+];
+
+const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash", 
+    safetySettings 
+});
+
+/**
+ * sleep — Auxiliar para retry com delay
+ */
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * geraVereditoIA — Envia dados técnicos e notícias para o Gemini gerar um parecer
  */
-async function geraVereditoIA(dadosAtivo, dadosMacro) {
+async function geraVereditoIA(dadosAtivo, dadosMacro, retries = 2) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey === "SUA_CHAVE_AQUI") {
         console.error("❌ ERRO: GEMINI_API_KEY não configurada no ambiente.");
-        return { erro: "GEMINI_API_KEY não configurada no servidor." };
+        return { erro: "Chave API não configurada." };
     }
 
     try {
@@ -66,6 +83,13 @@ async function geraVereditoIA(dadosAtivo, dadosMacro) {
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
+        
+        // Verificar se foi bloqueado por segurança antes de tentar ler o texto
+        if (response.promptFeedback?.blockReason) {
+            console.warn(`⚠️ Prompt bloqueado por segurança: ${response.promptFeedback.blockReason}`);
+            throw new Error("SAFETY_FILTER_TRIGGERED");
+        }
+
         const text = response.text();
         
         // Limpeza agressiva da resposta da IA para garantir JSON válido
@@ -84,23 +108,35 @@ async function geraVereditoIA(dadosAtivo, dadosMacro) {
             return parsed;
         } catch (e) {
             console.error("Erro ao fazer parse do JSON da IA:", e.message, "Texto:", text);
-            // Fallback caso a IA retorne algo inválido
-            return {
-                sentimento: "Neutro",
-                recomendacao: "Aguardar",
-                justificativa_tecnica: "Análise técnica prejudicada por falha na formatação da IA.",
-                justificativa_contexto: "Ocorreu um erro no processamento da inteligência artificial.",
-                alvos: { entrada: dadosAtivo.preco, stop_loss: dadosAtivo.preco * 0.95, take_profit: dadosAtivo.preco * 1.10 },
-                confianca: 50
-            };
+            throw new Error("JSON_PARSE_ERROR");
         }
     } catch (error) {
-        console.error("❌ Erro Crítico no Gemini AI:", error.message);
-        // Se o erro for de segurança ou cota, avisamos no retorno
-        if (error.message.includes("SAFETY") || error.message.includes("quota")) {
-            return { erro: "Limite de cota ou filtro de segurança da IA atingido." };
+        console.error(`❌ Tentativa falhou (${retries} restantes):`, error.message);
+
+        // Se for erro de cota (429) ou erro interno temporário, tenta novamente
+        if (retries > 0 && (error.message.includes("429") || error.message.includes("quota") || error.message.includes("500"))) {
+            const waitTime = (3 - retries) * 2000; // 2s, 4s...
+            console.log(`⏳ Aguardando ${waitTime}ms para nova tentativa...`);
+            await sleep(waitTime);
+            return geraVereditoIA(dadosAtivo, dadosMacro, retries - 1);
         }
-        return { erro: `Falha na IA: ${error.message.substring(0, 50)}...` };
+
+        // Se falhou tudo ou foi segurança, retorna o FALLBACK TÉCNICO (nunca retorna erro string)
+        console.warn("⚠️ Utilizando fallback técnico devido a falha na IA.");
+        
+        return {
+            sentimento: "Neutro",
+            recomendacao: "MONITORAR",
+            justificativa_tecnica: `Análise baseada em indicadores: RSI (${dadosAtivo.rsi}), ADX (${dadosAtivo.adx}). Tendência: ${dadosAtivo.detalhes?.tendencia || 'Indefinida'}.`,
+            justificativa_contexto: "A análise qualitativa está temporariamente indisponível (limite de cota), mas os indicadores técnicos seguem operacionais.",
+            alvos: { 
+                entrada: dadosAtivo.preco, 
+                stop_loss: dadosAtivo.preco * 0.95, 
+                take_profit: dadosAtivo.preco * 1.10 
+            },
+            confianca: 50,
+            is_fallback: true
+        };
     }
 }
 

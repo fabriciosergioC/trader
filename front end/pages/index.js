@@ -407,7 +407,10 @@ function VereditoIACard({ veredito }) {
         <div className="veredito-ia-panel">
             <div className="veredito-ia-header">
                 <span className="ia-icon">🤖</span>
-                <span className="ia-label">Análise Inteligente (Gemini AI)</span>
+                <span className="ia-label">
+                    Análise Inteligente (Gemini AI)
+                    {veredito.is_fallback && <span className="fallback-badge">MODO TÉCNICO</span>}
+                </span>
                 {veredito.confianca && (
                     <span className="ia-confianca">{veredito.confianca}% confiança</span>
                 )}
