@@ -534,7 +534,11 @@ function AssetCard({ d, idx }) {
             setTimeout(() => setEnviado(false), 3000); // Reset após 3s
         } catch (error) {
             console.error("Erro ao enviar para Telegram:", error);
-            alert("Erro ao enviar sinal. Verifique a conexão com o backend.");
+            if (error.response?.status === 404) {
+                alert("Erro 404: Endpoint não encontrado. Por favor, REINICIE o seu servidor backend para ativar o novo recurso de envio manual.");
+            } else {
+                alert("Erro ao enviar sinal. Verifique a conexão com o backend ou as credenciais do Telegram.");
+            }
         } finally {
             setEnviando(false);
         }

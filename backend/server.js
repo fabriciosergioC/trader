@@ -649,5 +649,7 @@ app.listen(PORT, () => {
     console.log(`   - GET /macro`);
     console.log(`   - GET /analise?ativo=TICKER`);
     console.log(`   - GET /analise-ia/TICKER`);
-    console.log(`   - GET /oportunidades-compra\n`);
+    console.log(`   - GET /oportunidades-compra`);
+    console.log(`   - POST /enviar-telegram (NOVO ✈️)\n`);
+    console.log(`\nSinais automáticos agendados (Seg-Sex, 09h-18h)`);
 });

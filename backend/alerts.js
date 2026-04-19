@@ -31,8 +31,10 @@ async function enviarParaTelegram(mensagem) {
             disable_web_page_preview: false
         });
         console.log('✅ Alerta enviado para o Telegram com sucesso!');
+        return true;
     } catch (error) {
         console.error('❌ Erro da API do Telegram:', error.response?.data || error.message);
+        throw error; // Lança o erro para ser capturado pelo endpoint
     }
 }
 
