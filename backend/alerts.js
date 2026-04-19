@@ -108,4 +108,4 @@ function verificarAlerta(dados) {
     });
 }
 
-module.exports = { verificarAlerta };
+module.exports = { verificarAlerta, enviarParaTelegram };

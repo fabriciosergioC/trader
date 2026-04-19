@@ -499,6 +499,9 @@ function NoticiasCard({ noticias }) {
 
 // ── Componente: Card do Ativo ─────────────────────────────────────────────────
 function AssetCard({ d, idx }) {
+    const [enviando, setEnviando] = useState(false);
+    const [enviado, setEnviado] = useState(false);
+
     const sinalClass   = (d.sinal ?? "NEUTRO").toLowerCase();
     const confClass    = confiancaColor(d.confianca);
     const adxInfo      = adxLabel(d.adx);
@@ -508,6 +511,35 @@ function AssetCard({ d, idx }) {
     // ── Análise consolidada para recomendação de entrada ──────────────────────
     const analiseEntrada = analisarEntrada(d);
 
+    async function enviarParaTelegram() {
+        if (enviando || enviado) return;
+        
+        setEnviando(true);
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+        
+        try {
+            await axios.post(`${API_URL}/enviar-telegram`, {
+                ticker: d.ticker,
+                preco: d.preco,
+                sinal: d.sinal,
+                confianca: d.confianca,
+                score: analiseEntrada.score,
+                veredito: d.vereditoIA,
+                recomendacao: {
+                    tipo: analiseEntrada.recomendacao,
+                    icone: analiseEntrada.icone
+                }
+            });
+            setEnviado(true);
+            setTimeout(() => setEnviado(false), 3000); // Reset após 3s
+        } catch (error) {
+            console.error("Erro ao enviar para Telegram:", error);
+            alert("Erro ao enviar sinal. Verifique a conexão com o backend.");
+        } finally {
+            setEnviando(false);
+        }
+    }
+
     return (
         <div className={`asset-card ${sinalClass}`} style={{ animationDelay: `${idx * 0.12}s` }}>
             {/* ── Header ── */}
@@ -516,9 +548,34 @@ function AssetCard({ d, idx }) {
                     <div className="ticker">{d.ticker?.replace(".SA", "")}</div>
                     <div className="ticker-full">{d.ticker}</div>
                 </div>
-                <div className={`signal-badge ${d.sinal}`}>
-                    <span>{SIGNAL_ICON[d.sinal] ?? "◆"}</span>
-                    {d.sinal ?? "NEUTRO"}
+                <div className="header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button 
+                        className={`btn-telegram ${enviado ? 'success' : ''}`} 
+                        onClick={enviarParaTelegram}
+                        disabled={enviando || enviado}
+                        title="Enviar para Telegram"
+                        style={{
+                            background: enviado ? '#10b981' : '#0088cc',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            cursor: (enviando || enviado) ? 'default' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        {enviando ? '⌛' : enviado ? '✅' : '✈️'}
+                        {enviado ? 'Enviado' : 'Telegram'}
+                    </button>
+                    <div className={`signal-badge ${d.sinal}`}>
+                        <span>{SIGNAL_ICON[d.sinal] ?? "◆"}</span>
+                        {d.sinal ?? "NEUTRO"}
+                    </div>
                 </div>
                 {d.sinal_longo_prazo === "COMPRA" && (
                     <div className="signal-badge COMPRA" style={{ background: '#7e22ce', marginLeft: '5px' }}>

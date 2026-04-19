@@ -4,7 +4,7 @@ const cors    = require("cors");
 const cron    = require("node-cron");
 
 const { analisarAtivo }    = require("./services/analysis");
-const { verificarAlerta }  = require("./alerts");
+const { verificarAlerta, enviarParaTelegram }  = require("./alerts");
 const { buscarContextoMacro } = require("./services/contextMacro");
 const { sincronizarAtivo, salvarTrade } = require("./services/supabase");
 
@@ -475,6 +475,38 @@ app.get("/analise-ia/:ticker", async (req, res) => {
     } catch (error) {
         console.error("Erro /analise-ia:", error.message);
         res.status(500).json({ error: "Erro ao gerar análise da IA" });
+    }
+});
+
+// ── POST /enviar-telegram — Envia sinal manual de um ativo para o Telegram ───
+app.post("/enviar-telegram", async (req, res) => {
+    try {
+        const { ticker, preco, sinal, confianca, score, veredito, recomendacao } = req.body;
+
+        if (!ticker) {
+            return res.status(400).json({ error: "Ticker é obrigatório." });
+        }
+
+        // Formatar mensagem (seguindo o padrão do alerts.js)
+        let msg = `<b>${recomendacao?.icone || '✅'} ENVIO MANUAL: ${ticker.replace('.SA', '')}</b>\n\n` +
+                  `💰 <b>Preço:</b> R$ ${preco?.toFixed(2) || '—'}\n` +
+                  `🔥 <b>Confiança:</b> ${confianca || '—'}%\n` +
+                  `📊 <b>Score Técnico:</b> ${score > 0 ? '+' : ''}${score || '—'}\n`;
+        
+        if (veredito && !veredito.erro) {
+            msg += `\n<b>🤖 ANÁLISE GEMINI AI:</b>\n` +
+                   `💬 ${veredito.justificativa_tecnica || veredito.justificativa}\n` +
+                   `🎯 <b>Alvo:</b> R$ ${veredito.alvos?.take_profit?.toFixed(2) || '—'}\n` +
+                   `🛡️ <b>Stop:</b> R$ ${veredito.alvos?.stop_loss?.toFixed(2) || '—'}\n`;
+        }
+
+        msg += `\n#${ticker.replace('.SA', '')} #TradeAI #Manual`;
+
+        await enviarParaTelegram(msg);
+        res.json({ success: true, message: "Sinal enviado para o Telegram!" });
+    } catch (error) {
+        console.error("Erro /enviar-telegram:", error.message);
+        res.status(500).json({ error: "Erro ao enviar para o Telegram" });
     }
 });
 
