@@ -1502,174 +1502,155 @@ export default function Home() {
                             </div>
                         </div>
 
-                        {/* ── Abas de Navegação ── */}
-                        <div className="abas-container">
-                            <button
-                                className={`aba-btn ${abaAtual === "lista" ? "active" : ""}`}
-                                onClick={() => setAbaAtual("lista")}
-                            >
-                                📋 Lista de Ativos
-                            </button>
-                            <button
-                                className={`aba-btn green ${abaAtual === "oportunidades" ? "active" : ""}`}
-                                onClick={() => setAbaAtual("oportunidades")}
-                            >
-                                🎯 Guia de Oportunidades ({oportunidades.filter(o => o.probabilidade >= 50).length})
-                            </button>
-                        </div>
-
                         {/* ═══════════════════════════════════════════════════════════════
                             ABA: GUIA DE OPORTUNIDADES
                             ═══════════════════════════════════════════════════════════════ */}
-                        {abaAtual === "oportunidades" && (
-                            <div className="oportunidades-section">
-                                {/* Header Profissional */}
-                                <div className="oport-section-header">
-                                    <div className="oport-header-top">
-                                        <div>
-                                            <h2 className="oport-section-title">
-                                                <span className="title-icon">🎯</span>
-                                                Guia de Oportunidades ({totalGeral} ativos)
-                                            </h2>
-                                            <p className="oport-section-subtitle">
-                                                Ranking inteligente baseado em análise técnica multicamada
-                                            </p>
-                                        </div>
-                                        
-                                        <div className="sub-abas-oport">
-                                            <button 
-                                                className={`sub-aba-btn compra ${subAbaOportunidades === "compra" ? "active" : ""}`}
-                                                onClick={() => setSubAbaOportunidades("compra")}
-                                            >
-                                                📈 Melhores Compras ({oportunidades.filter(o => o.sinal === "COMPRA" && o.confianca >= 60).length})
-                                            </button>
-                                            <button 
-                                                className={`sub-aba-btn venda ${subAbaOportunidades === "venda" ? "active" : ""}`}
-                                                onClick={() => setSubAbaOportunidades("venda")}
-                                            >
-                                                📉 Melhores Vendas ({oportunidades.filter(o => o.sinal === "VENDA" && o.confianca >= 60).length})
-                                            </button>
-                                            <button 
-                                                className={`sub-aba-btn neutro ${subAbaOportunidades === "aguardar" ? "active" : ""}`}
-                                                onClick={() => setSubAbaOportunidades("aguardar")}
-                                            >
-                                                ◆ Aguardando ({oportunidades.filter(o => o.sinal === "NEUTRO" || o.confianca < 60).length})
-                                            </button>
-                                        </div>
+                        <div className="oportunidades-section">
+                            {/* Header Profissional */}
+                            <div className="oport-section-header">
+                                <div className="oport-header-top">
+                                    <div>
+                                        <h2 className="oport-section-title">
+                                            <span className="title-icon">🎯</span>
+                                            Guia de Oportunidades ({totalGeral} ativos)
+                                        </h2>
+                                        <p className="oport-section-subtitle">
+                                            Ranking inteligente baseado em análise técnica multicamada
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="sub-abas-oport">
+                                        <button 
+                                            className={`sub-aba-btn compra ${subAbaOportunidades === "compra" ? "active" : ""}`}
+                                            onClick={() => setSubAbaOportunidades("compra")}
+                                        >
+                                            📈 Melhores Compras ({oportunidades.filter(o => o.sinal === "COMPRA" && o.confianca >= 60).length})
+                                        </button>
+                                        <button 
+                                            className={`sub-aba-btn venda ${subAbaOportunidades === "venda" ? "active" : ""}`}
+                                            onClick={() => setSubAbaOportunidades("venda")}
+                                        >
+                                            📉 Melhores Vendas ({oportunidades.filter(o => o.sinal === "VENDA" && o.confianca >= 60).length})
+                                        </button>
+                                        <button 
+                                            className={`sub-aba-btn neutro ${subAbaOportunidades === "aguardar" ? "active" : ""}`}
+                                            onClick={() => setSubAbaOportunidades("aguardar")}
+                                        >
+                                            ◆ Aguardando ({oportunidades.filter(o => o.sinal === "NEUTRO" || o.confianca < 60).length})
+                                        </button>
                                     </div>
                                 </div>
-
-                                {/* Tabela Profissional */}
-                                <div className="oport-table-container">
-                                    <table className="oport-table">
-                                        <thead>
-                                            <tr>
-                                                <th className="th-rank">#</th>
-                                                <th className="th-ticker">Ativo</th>
-                                                <th className="th-preco">Preço</th>
-                                                <th className="th-prob">Probabilidade</th>
-                                                <th className="th-rec">Recomendação</th>
-                                                <th className="th-score">Score</th>
-                                                <th className="th-rsi">RSI</th>
-                                                <th className="th-adx">ADX</th>
-                                                <th className="th-conf">Confiança</th>
-                                                <th className="th-tendencia">Tendência</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {oportunidades
-                                                .filter(o => {
-                                                    if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && (o.confianca >= 60 || o.score >= 6);
-                                                    if (subAbaOportunidades === "venda") return o.sinal === "VENDA" && (o.confianca >= 60 || o.sellScore >= 6);
-                                                    return (o.sinal === "NEUTRO" || (o.confianca < 60 && o.score < 6 && o.sellScore < 6));
-                                                })
-                                                .sort((a, b) => {
-                                                    if (subAbaOportunidades === "compra") return b.score - a.score;
-                                                    if (subAbaOportunidades === "venda") return b.sellScore - a.sellScore;
-                                                    return b.confianca - a.confianca;
-                                                })
-                                                .map((ativo, idx) => {
-                                                    const prob = (subAbaOportunidades === "compra" ? ativo.probabilidade : ativo.probabilidadeVenda) ?? 0;
-                                                    const rec = (subAbaOportunidades === "compra" ? ativo.recomendacao : ativo.recomendacaoVenda) ?? "NEUTRO";
-                                                    const score = (subAbaOportunidades === "compra" ? ativo.score : ativo.sellScore) ?? 0;
-                                                    
-                                                    const probClass = subAbaOportunidades === "compra" 
-                                                        ? (prob >= 70 ? 'forte-compra' : prob >= 50 ? 'compra' : 'neutro')
-                                                        : (prob >= 70 ? 'forte-venda' : prob >= 50 ? 'venda' : 'neutro');
-                                                    
-                                                    return (
-                                                        <tr 
-                                                            key={ativo.ticker} 
-                                                            className={`oport-row ${probClass}`}
-                                                            onClick={() => verDetalhes(ativo.ticker)}
-                                                        >
-                                                            <td className="td-rank">
-                                                                <span className="rank-badge">{idx + 1}</span>
-                                                            </td>
-                                                            <td className="td-ticker">
-                                                                <div className="ticker-main">{ativo.ticker.replace('.SA', '')}</div>
-                                                                <div className="ticker-sub">{ativo.nome || ativo.ticker}</div>
-                                                            </td>
-                                                            <td className="td-preco">
-                                                                <span className="price-value">R$ {fmt(ativo.preco)}</span>
-                                                            </td>
-                                                            <td className="td-prob">
-                                                                <div className="prob-cell">
-                                                                    <div className="prob-value-text">{prob}%</div>
-                                                                    <div className="prob-bar-bg">
-                                                                        <div 
-                                                                            className={`prob-bar-fill ${probClass}`}
-                                                                            style={{ width: `${prob}%` }}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="td-rec">
-                                                                <span className={`rec-badge ${probClass}`}>
-                                                                    {rec}
-                                                                </span>
-                                                            </td>
-                                                            <td className="td-score">
-                                                                <span className={`score-value ${score >= 5 ? 'positive' : score <= 0 ? 'negative' : 'neutral'}`}>
-                                                                    {score >= 0 ? '+' : ''}{score}
-                                                                </span>
-                                                            </td>
-                                                            <td className="td-rsi">
-                                                                <span className={`rsi-value ${ativo.rsi < 30 ? 'oversold' : ativo.rsi > 70 ? 'overbought' : 'neutral'}`}>
-                                                                    {fmt(ativo.rsi)}
-                                                                </span>
-                                                            </td>
-                                                            <td className="td-adx">
-                                                                <span className={`adx-value ${ativo.adx >= 25 ? 'strong' : ativo.adx >= 20 ? 'moderate' : 'weak'}`}>
-                                                                    {fmt(ativo.adx, 1)}
-                                                                </span>
-                                                            </td>
-                                                            <td className="td-conf">
-                                                                <span className="conf-value">{ativo.confianca}%</span>
-                                                            </td>
-                                                            <td className="td-tendencia">
-                                                                <span className={`tendencia-badge ${ativo.tendencia?.toLowerCase()}`}>
-                                                                    {ativo.tendencia === 'ALTA' ? '▲ Alta' : 
-                                                                     ativo.tendencia === 'BAIXA' ? '▼ Baixa' : '◆ Neutro'}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                        </tbody>
-                                    </table>
-                                </div>
                             </div>
-                        )}
+
+                            {/* Tabela Profissional */}
+                            <div className="oport-table-container">
+                                <table className="oport-table">
+                                    <thead>
+                                        <tr>
+                                            <th className="th-rank">#</th>
+                                            <th className="th-ticker">Ativo</th>
+                                            <th className="th-preco">Preço</th>
+                                            <th className="th-prob">Probabilidade</th>
+                                            <th className="th-rec">Recomendação</th>
+                                            <th className="th-score">Score</th>
+                                            <th className="th-rsi">RSI</th>
+                                            <th className="th-adx">ADX</th>
+                                            <th className="th-conf">Confiança</th>
+                                            <th className="th-tendencia">Tendência</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {oportunidades
+                                            .filter(o => {
+                                                if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && (o.confianca >= 60 || o.score >= 6);
+                                                if (subAbaOportunidades === "venda") return o.sinal === "VENDA" && (o.confianca >= 60 || o.sellScore >= 6);
+                                                return (o.sinal === "NEUTRO" || (o.confianca < 60 && o.score < 6 && o.sellScore < 6));
+                                            })
+                                            .sort((a, b) => {
+                                                if (subAbaOportunidades === "compra") return b.score - a.score;
+                                                if (subAbaOportunidades === "venda") return b.sellScore - a.sellScore;
+                                                return b.confianca - a.confianca;
+                                            })
+                                            .map((ativo, idx) => {
+                                                const prob = (subAbaOportunidades === "compra" ? ativo.probabilidade : ativo.probabilidadeVenda) ?? 0;
+                                                const rec = (subAbaOportunidades === "compra" ? ativo.recomendacao : ativo.recomendacaoVenda) ?? "NEUTRO";
+                                                const score = (subAbaOportunidades === "compra" ? ativo.score : ativo.sellScore) ?? 0;
+                                                
+                                                const probClass = subAbaOportunidades === "compra" 
+                                                    ? (prob >= 70 ? 'forte-compra' : prob >= 50 ? 'compra' : 'neutro')
+                                                    : (prob >= 70 ? 'forte-venda' : prob >= 50 ? 'venda' : 'neutro');
+                                                
+                                                return (
+                                                    <tr 
+                                                        key={ativo.ticker} 
+                                                        className={`oport-row ${probClass}`}
+                                                        onClick={() => verDetalhes(ativo.ticker)}
+                                                    >
+                                                        <td className="td-rank">
+                                                            <span className="rank-badge">{idx + 1}</span>
+                                                        </td>
+                                                        <td className="td-ticker">
+                                                            <div className="ticker-main">{ativo.ticker.replace('.SA', '')}</div>
+                                                            <div className="ticker-sub">{ativo.nome || ativo.ticker}</div>
+                                                        </td>
+                                                        <td className="td-preco">
+                                                            <span className="price-value">R$ {fmt(ativo.preco)}</span>
+                                                        </td>
+                                                        <td className="td-prob">
+                                                            <div className="prob-cell">
+                                                                <div className="prob-value-text">{prob}%</div>
+                                                                <div className="prob-bar-bg">
+                                                                    <div 
+                                                                        className={`prob-bar-fill ${probClass}`}
+                                                                        style={{ width: `${prob}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="td-rec">
+                                                            <span className={`rec-badge ${probClass}`}>
+                                                                {rec}
+                                                            </span>
+                                                        </td>
+                                                        <td className="td-score">
+                                                            <span className={`score-value ${score >= 5 ? 'positive' : score <= 0 ? 'negative' : 'neutral'}`}>
+                                                                {score >= 0 ? '+' : ''}{score}
+                                                            </span>
+                                                        </td>
+                                                        <td className="td-rsi">
+                                                            <span className={`rsi-value ${ativo.rsi < 30 ? 'oversold' : ativo.rsi > 70 ? 'overbought' : 'neutral'}`}>
+                                                                {fmt(ativo.rsi)}
+                                                            </span>
+                                                        </td>
+                                                        <td className="td-adx">
+                                                            <span className={`adx-value ${ativo.adx >= 25 ? 'strong' : ativo.adx >= 20 ? 'moderate' : 'weak'}`}>
+                                                                {fmt(ativo.adx, 1)}
+                                                            </span>
+                                                        </td>
+                                                        <td className="td-conf">
+                                                            <span className="conf-value">{ativo.confianca}%</span>
+                                                        </td>
+                                                        <td className="td-tendencia">
+                                                            <span className={`tendencia-badge ${ativo.tendencia?.toLowerCase()}`}>
+                                                                {ativo.tendencia === 'ALTA' ? '▲ Alta' : 
+                                                                 ativo.tendencia === 'BAIXA' ? '▼ Baixa' : '◆ Neutro'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
 
                         {/* ═══════════════════════════════════════════════════════════════
                             ABA: LISTA DE ATIVOS
                             ═══════════════════════════════════════════════════════════════ */}
-                        {abaAtual === "lista" && (
                         <>
-
                         {/* ── Contador de resultados ── */}
-                        <div className="resultados-info">
+                        <div className="resultados-info" style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+                            <h3 className="section-title">📋 Lista Completa de Ativos</h3>
                             Mostrando <strong>{ativosFiltrados.length}</strong> de {listaRapida.length} ativos
                         </div>
 
