@@ -1816,7 +1816,6 @@ export default function Home() {
 
                         {/* ── Rodapé ── */}
                         </>
-                        )}
                         {lastUpdate && (
                             <div className="last-update">
                                 <span>🕐</span>
