@@ -1509,16 +1509,6 @@ export default function Home() {
                             {/* Header Profissional */}
                             <div className="oport-section-header">
                                 <div className="oport-header-top">
-                                    <div>
-                                        <h2 className="oport-section-title">
-                                            <span className="title-icon">🎯</span>
-                                            Guia de Oportunidades ({totalGeral} ativos)
-                                        </h2>
-                                        <p className="oport-section-subtitle">
-                                            Ranking inteligente baseado em análise técnica multicamada
-                                        </p>
-                                    </div>
-                                    
                                     <div className="sub-abas-oport">
                                         <button 
                                             className={`sub-aba-btn compra ${subAbaOportunidades === "compra" ? "active" : ""}`}
