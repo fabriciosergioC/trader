@@ -1127,14 +1127,8 @@ export default function Home() {
         setBuscaAtiva(false);
         setSugestoes([]);
         
-        // Se o ativo estiver em oportunidades, adiciona-o à lista rápida
-        const ativoCompleto = oportunidades.find(o => o.ticker === ticker);
-        if (ativoCompleto) {
-            setListaRapida([ativoCompleto]);
-        } else {
-            // Fallback: filtra na lista rápida se não estiver em oportunidades
-            setListaRapida(listaRapida.filter(a => a.ticker === ticker));
-        }
+        // Abre direto a análise detalhada do ativo selecionado
+        verDetalhes(ticker);
     }
 
     function limparBusca() {
