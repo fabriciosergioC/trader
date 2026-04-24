@@ -7,14 +7,59 @@ const { analisarAtivo }    = require("./services/analysis");
 const { verificarAlerta, enviarParaTelegram }  = require("./alerts");
 const { buscarContextoMacro } = require("./services/contextMacro");
 const { sincronizarAtivo, salvarTrade } = require("./services/supabase");
+const { getTickerName } = require("./utils/tickerNames");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Log de todas as requisições para depuração
+app.use((req, res, next) => {
+    console.log(`🔍 [${req.method}] ${req.url}`);
+    next();
+});
 
 // ── ENDPOINT DE SAÚDE (Para UptimeRobot / Keep-Alive) ────────────────────────
 app.get("/ping", (req, res) => {
     res.status(200).send("pong 🚀");
+});
+
+app.get("/test-route", (req, res) => {
+    res.json({ message: "Rota de teste funcionando!" });
+});
+
+// ── POST /enviar-telegram — Envia sinal manual de um ativo para o Telegram ───
+app.post("/enviar-telegram", async (req, res) => {
+    try {
+        const { ticker, preco, sinal, confianca, score, veredito, recomendacao } = req.body;
+        console.log(`📤 [Telegram] Recebida solicitação manual para ${ticker}`);
+
+        if (!ticker) {
+            return res.status(400).json({ error: "Ticker é obrigatório." });
+        }
+
+        // Formatar mensagem
+        let msg = `<b>${recomendacao?.icone || '✅'} ENVIO MANUAL: ${ticker.replace('.SA', '')}</b>\n\n` +
+                  `💰 <b>Preço:</b> R$ ${preco?.toFixed(2) || '—'}\n` +
+                  `🔥 <b>Confiança:</b> ${confianca || '—'}%\n` +
+                  `📊 <b>Score Técnico:</b> ${score > 0 ? '+' : ''}${score || '—'}\n`;
+        
+        if (veredito && !veredito.erro) {
+            msg += `\n<b>🤖 ANÁLISE GEMINI AI:</b>\n` +
+                   `💬 ${veredito.justificativa_tecnica || veredito.justificativa}\n` +
+                   `🎯 <b>Alvo:</b> R$ ${veredito.alvos?.take_profit?.toFixed(2) || '—'}\n` +
+                   `🛡️ <b>Stop:</b> R$ ${veredito.alvos?.stop_loss?.toFixed(2) || '—'}\n`;
+        }
+
+        msg += `\n#${ticker.replace('.SA', '')} #TradeAI #Manual`;
+
+        await enviarParaTelegram(msg);
+        res.json({ success: true, message: "Sinal enviado para o Telegram!" });
+    } catch (error) {
+        console.error("❌ Erro /enviar-telegram:", error.message);
+        res.status(500).json({ error: "Erro ao enviar para o Telegram" });
+    }
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -363,6 +408,7 @@ app.get("/oportunidades-compra", async (req, res) => {
             // mas precisamos garantir que os campos necessários para o score existam
             baseParaOportunidades = cachedAnaliseFull.map(r => ({
                 ticker: r.ticker,
+                nome: getTickerName(r.ticker),
                 preco: r.preco,
                 sinal: r.sinal,
                 confianca: r.confianca,
@@ -381,6 +427,7 @@ app.get("/oportunidades-compra", async (req, res) => {
 
             baseParaOportunidades = resultados.filter(r => !r.erro).map(r => ({
                 ticker: r.ticker,
+                nome: getTickerName(r.ticker),
                 preco: r.preco,
                 sinal: r.sinal,
                 confianca: r.confianca,
@@ -478,38 +525,6 @@ app.get("/analise-ia/:ticker", async (req, res) => {
     }
 });
 
-// ── POST /enviar-telegram — Envia sinal manual de um ativo para o Telegram ───
-app.post("/enviar-telegram", async (req, res) => {
-    try {
-        const { ticker, preco, sinal, confianca, score, veredito, recomendacao } = req.body;
-
-        if (!ticker) {
-            return res.status(400).json({ error: "Ticker é obrigatório." });
-        }
-
-        // Formatar mensagem (seguindo o padrão do alerts.js)
-        let msg = `<b>${recomendacao?.icone || '✅'} ENVIO MANUAL: ${ticker.replace('.SA', '')}</b>\n\n` +
-                  `💰 <b>Preço:</b> R$ ${preco?.toFixed(2) || '—'}\n` +
-                  `🔥 <b>Confiança:</b> ${confianca || '—'}%\n` +
-                  `📊 <b>Score Técnico:</b> ${score > 0 ? '+' : ''}${score || '—'}\n`;
-        
-        if (veredito && !veredito.erro) {
-            msg += `\n<b>🤖 ANÁLISE GEMINI AI:</b>\n` +
-                   `💬 ${veredito.justificativa_tecnica || veredito.justificativa}\n` +
-                   `🎯 <b>Alvo:</b> R$ ${veredito.alvos?.take_profit?.toFixed(2) || '—'}\n` +
-                   `🛡️ <b>Stop:</b> R$ ${veredito.alvos?.stop_loss?.toFixed(2) || '—'}\n`;
-        }
-
-        msg += `\n#${ticker.replace('.SA', '')} #TradeAI #Manual`;
-
-        await enviarParaTelegram(msg);
-        res.json({ success: true, message: "Sinal enviado para o Telegram!" });
-    } catch (error) {
-        console.error("Erro /enviar-telegram:", error.message);
-        res.status(500).json({ error: "Erro ao enviar para o Telegram" });
-    }
-});
-
 // ═════════════════════════════════════════════════════════════════════════════
 // ── Agendador Automático (CRON)
 // ═════════════════════════════════════════════════════════════════════════════
@@ -602,6 +617,7 @@ app.get("/analise-rapida", async (req, res) => {
         const resultados = await processarAtivosEmBatch(ATIVOS_VALIDOS, macro, 35, true);
         const resultadosValidos = resultados.filter(r => !r.erro).map(r => ({
             ticker: r.ticker,
+            nome: getTickerName(r.ticker),
             preco: r.preco,
             sinal: r.sinal,
             confianca: r.confianca,
@@ -641,7 +657,7 @@ app.get("/analise-rapida", async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
     console.log(`\n🚀 Servidor Trading System rodando na porta ${PORT}`);
     console.log(`📍 Endpoints disponíveis:`);

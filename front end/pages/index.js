@@ -515,7 +515,7 @@ function AssetCard({ d, idx }) {
         if (enviando || enviado) return;
         
         setEnviando(true);
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
         
         try {
             await axios.post(`${API_URL}/enviar-telegram`, {
@@ -550,7 +550,7 @@ function AssetCard({ d, idx }) {
             <div className="card-header">
                 <div>
                     <div className="ticker">{d.ticker?.replace(".SA", "")}</div>
-                    <div className="ticker-full">{d.ticker}</div>
+                    <div className="ticker-full">{d.nome || d.ticker}</div>
                 </div>
                 <div className="header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button 
@@ -1080,7 +1080,7 @@ export default function Home() {
     // ── Carregar lista rápida de todos os ativos ──────────────────────────────
     async function carregarListaRapida() {
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
             let url = `${API_URL}/analise-rapida?pagina=${paginaAtual}&limite=${limitePorPagina}`;
             if (setorSelecionado !== "todos") {
                 url += `&setor=${setorSelecionado}`;
@@ -1106,10 +1106,12 @@ export default function Home() {
         setBusca(valor);
         
         if (valor.trim().length >= 2) {
-            // Buscar ativos que correspondem à busca
+            // Buscar ativos que correspondem à busca (usando a lista completa de oportunidades para busca global)
             const termos = valor.toUpperCase().trim();
-            const correspondencias = listaRapida.filter(ativo => 
-                ativo.ticker.toUpperCase().includes(termos)
+            const fonteDeBusca = oportunidades.length > 0 ? oportunidades : listaRapida;
+            const correspondencias = fonteDeBusca.filter(ativo => 
+                ativo.ticker.toUpperCase().includes(termos) || 
+                (ativo.nome && ativo.nome.toUpperCase().includes(termos))
             ).slice(0, 8); // Máximo 8 sugestões
             
             setSugestoes(correspondencias);
@@ -1124,8 +1126,15 @@ export default function Home() {
         setBusca(ticker);
         setBuscaAtiva(false);
         setSugestoes([]);
-        // Filtrar para mostrar apenas o ativo selecionado
-        setListaRapida(listaRapida.filter(a => a.ticker === ticker));
+        
+        // Se o ativo estiver em oportunidades, adiciona-o à lista rápida
+        const ativoCompleto = oportunidades.find(o => o.ticker === ticker);
+        if (ativoCompleto) {
+            setListaRapida([ativoCompleto]);
+        } else {
+            // Fallback: filtra na lista rápida se não estiver em oportunidades
+            setListaRapida(listaRapida.filter(a => a.ticker === ticker));
+        }
     }
 
     function limparBusca() {
@@ -1138,7 +1147,7 @@ export default function Home() {
     // ── Carregar setores disponíveis ──────────────────────────────────────────
     async function carregarSetores() {
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
             const res = await axios.get(`${API_URL}/ativos`);
             setSetores(res.data.setores ?? []);
         } catch (e) {
@@ -1170,7 +1179,7 @@ export default function Home() {
     // ── Carregar oportunidades de compra ───────────────────────────────────────
     async function carregarOportunidades() {
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
             // Busca todos os 150 ativos (limite alto para garantir lista completa)
             const res = await axios.get(`${API_URL}/oportunidades-compra?limite=200`);
             setOportunidades(res.data.ativos ?? []);
@@ -1183,7 +1192,7 @@ export default function Home() {
     async function carregarAnalise(setor = null, ativo = null) {
         try {
             setLoading(true);
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
             let url = `${API_URL}/analise`;
             const params = [];
             if (setor && setor !== "todos") params.push(`setor=${setor}`);
@@ -1216,9 +1225,12 @@ export default function Home() {
 
     // ── Filtrar ativos na lista rápida ────────────────────────────────────────
     const ativosFiltrados = listaRapida.filter(ativo => {
-        // Filtro de busca
-        if (busca && !ativo.ticker.toUpperCase().includes(busca.toUpperCase())) {
-            return false;
+        // Filtro de busca (Ticker ou Nome)
+        if (busca) {
+            const t = busca.toUpperCase();
+            const corresponde = ativo.ticker.toUpperCase().includes(t) || 
+                               (ativo.nome && ativo.nome.toUpperCase().includes(t));
+            if (!corresponde) return false;
         }
         // Filtro de sinal
         if (filtroSinal !== "todos" && ativo.sinal.toLowerCase() !== filtroSinal.toLowerCase()) {
@@ -1247,7 +1259,7 @@ export default function Home() {
     async function refrescarTudo() {
         setAtualizando(true);
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
             
             // Forçar atualização no backend limpando o cache
             await axios.get(`${API_URL}/analise?force=true&limite=1`);
@@ -1466,6 +1478,7 @@ export default function Home() {
                                                 onMouseDown={() => selecionarAtivo(ativo.ticker)}
                                             >
                                                 <span className="sugestao-ticker">{ativo.ticker.replace('.SA', '')}</span>
+                                                <span className="sugestao-nome">{ativo.nome || ''}</span>
                                                 <span className="sugestao-info">
                                                     <span className={`sugestao-sinal ${ativo.sinal.toLowerCase()}`}>
                                                         {ativo.sinal === 'COMPRA' ? '▲' : ativo.sinal === 'VENDA' ? '▼' : '◆'} {ativo.sinal}
@@ -1600,7 +1613,8 @@ export default function Home() {
                                                                 <span className="rank-badge">{idx + 1}</span>
                                                             </td>
                                                             <td className="td-ticker">
-                                                                <span className="ticker-symbol">{ativo.ticker.replace(".SA", "")}</span>
+                                                                <div className="ticker-main">{ativo.ticker.replace('.SA', '')}</div>
+                                                                <div className="ticker-sub">{ativo.nome || ativo.ticker}</div>
                                                             </td>
                                                             <td className="td-preco">
                                                                 <span className="price-value">R$ {fmt(ativo.preco)}</span>
@@ -1689,7 +1703,8 @@ export default function Home() {
                                             style={{ cursor: "pointer" }}
                                         >
                                             <td className="col-ticker">
-                                                <span className="ticker-badge">{ativo.ticker.replace(".SA", "")}</span>
+                                                <div className="ticker-main">{ativo.ticker.replace('.SA', '')}</div>
+                                                <div className="ticker-sub">{ativo.nome || ativo.ticker}</div>
                                             </td>
                                             <td className="col-preco">
                                                 R$ {fmt(ativo.preco)}
