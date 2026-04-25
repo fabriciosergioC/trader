@@ -1557,11 +1557,20 @@ export default function Home() {
                                                 return (o.sinal === "NEUTRO" || (o.confianca < 60 && o.score < 6 && o.sellScore < 6));
                                             })
                                             .sort((a, b) => {
-                                                if (subAbaOportunidades === "compra") return b.score - a.score;
-                                                if (subAbaOportunidades === "venda") return b.sellScore - a.sellScore;
+                                                if (subAbaOportunidades === "compra") {
+                                                    // Ordem de Escolha Perfeita: 1. Confiança, 2. Score, 3. ADX
+                                                    if (b.confianca !== a.confianca) return b.confianca - a.confianca;
+                                                    if (b.score !== a.score) return b.score - a.score;
+                                                    return b.adx - a.adx;
+                                                }
+                                                if (subAbaOportunidades === "venda") {
+                                                    // Ordem de Escolha Perfeita para Venda
+                                                    if (b.confianca !== a.confianca) return b.confianca - a.confianca;
+                                                    if (b.sellScore !== a.sellScore) return b.sellScore - a.sellScore;
+                                                    return b.adx - a.adx;
+                                                }
                                                 return b.confianca - a.confianca;
-                                            })
-                                            .map((ativo, idx) => {
+                                            })                                            .map((ativo, idx) => {
                                                 const prob = (subAbaOportunidades === "compra" ? ativo.probabilidade : ativo.probabilidadeVenda) ?? 0;
                                                 const rec = (subAbaOportunidades === "compra" ? ativo.recomendacao : ativo.recomendacaoVenda) ?? "NEUTRO";
                                                 const score = (subAbaOportunidades === "compra" ? ativo.score : ativo.sellScore) ?? 0;
