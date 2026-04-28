@@ -1409,7 +1409,7 @@ export default function Home() {
                                     <div className="stat-label">Oportunidades Compra</div>
                                     <div className="stat-value green">
                                         {oportunidades.length > 0 
-                                            ? oportunidades.filter(d => d.sinal === "COMPRA" && (d.confianca >= 60 || d.score >= 7)).length 
+                                            ? oportunidades.filter(d => d.sinal === "COMPRA" && analisarEntrada(d).recomendacao === "ENTRAR").length 
                                             : <span className="loading-dots">Analisando...</span>}
                                     </div>
                                 </div>
@@ -1514,7 +1514,7 @@ export default function Home() {
                                             className={`sub-aba-btn compra ${subAbaOportunidades === "compra" ? "active" : ""}`}
                                             onClick={() => setSubAbaOportunidades("compra")}
                                         >
-                                            📈 Melhores Compras ({oportunidades.filter(o => o.sinal === "COMPRA" && o.confianca >= 60).length})
+                                            📈 Melhores Compras ({oportunidades.filter(o => o.sinal === "COMPRA" && analisarEntrada(o).recomendacao === "ENTRAR").length})
                                         </button>
                                         <button 
                                             className={`sub-aba-btn venda ${subAbaOportunidades === "venda" ? "active" : ""}`}
@@ -1552,7 +1552,7 @@ export default function Home() {
                                     <tbody>
                                         {oportunidades
                                             .filter(o => {
-                                                if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && (o.confianca >= 60 || o.score >= 6);
+                                                if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && analisarEntrada(o).recomendacao === "ENTRAR";
                                                 if (subAbaOportunidades === "venda") return o.sinal === "VENDA" && (o.confianca >= 60 || o.sellScore >= 6);
                                                 return (o.sinal === "NEUTRO" || (o.confianca < 60 && o.score < 6 && o.sellScore < 6));
                                             })
@@ -1572,7 +1572,9 @@ export default function Home() {
                                                 return b.confianca - a.confianca;
                                             })                                            .map((ativo, idx) => {
                                                 const prob = (subAbaOportunidades === "compra" ? ativo.probabilidade : ativo.probabilidadeVenda) ?? 0;
-                                                const rec = (subAbaOportunidades === "compra" ? ativo.recomendacao : ativo.recomendacaoVenda) ?? "NEUTRO";
+                                                const rec = subAbaOportunidades === "compra" 
+                                                    ? analisarEntrada(ativo).recomendacao 
+                                                    : (ativo.recomendacaoVenda ?? "NEUTRO");
                                                 const score = (subAbaOportunidades === "compra" ? ativo.score : ativo.sellScore) ?? 0;
                                                 
                                                 const probClass = subAbaOportunidades === "compra" 
@@ -1630,9 +1632,9 @@ export default function Home() {
                                                             <span className="conf-value">{ativo.confianca}%</span>
                                                         </td>
                                                         <td className="td-tendencia">
-                                                            <span className={`tendencia-badge ${ativo.tendencia?.toLowerCase()}`}>
-                                                                {ativo.tendencia === 'ALTA' ? '▲ Alta' : 
-                                                                 ativo.tendencia === 'BAIXA' ? '▼ Baixa' : '◆ Neutro'}
+                                                            <span className={`tendencia-badge ${(ativo.detalhes?.tendencia || 'NEUTRO').toLowerCase()}`}>
+                                                                {(ativo.detalhes?.tendencia || 'NEUTRO') === 'ALTA' ? '▲ Alta' : 
+                                                                 (ativo.detalhes?.tendencia || 'NEUTRO') === 'BAIXA' ? '▼ Baixa' : '◆ Neutro'}
                                                             </span>
                                                         </td>
                                                     </tr>
@@ -1712,8 +1714,8 @@ export default function Home() {
                                                 </span>
                                             </td>
                                             <td className="col-tendencia">
-                                                <span className={`tendencia-badge ${ativo.tendencia.toLowerCase()}`}>
-                                                    {ativo.tendencia}
+                                                <span className={`tendencia-badge ${(ativo.detalhes?.tendencia || 'NEUTRO').toLowerCase()}`}>
+                                                    {ativo.detalhes?.tendencia || 'NEUTRO'}
                                                 </span>
                                             </td>
                                             <td className="col-acao">

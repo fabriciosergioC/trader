@@ -404,19 +404,8 @@ app.get("/oportunidades-compra", async (req, res) => {
         let tsBase = 0;
 
         if (!force && cachedAnaliseFull && (agora - analiseFullTimestamp) < CACHE_ANALISE_MS) {
-            // Se temos o cache da análise rápida, usamos ele como base, 
-            // mas precisamos garantir que os campos necessários para o score existam
-            baseParaOportunidades = cachedAnaliseFull.map(r => ({
-                ticker: r.ticker,
-                nome: getTickerName(r.ticker),
-                preco: r.preco,
-                sinal: r.sinal,
-                confianca: r.confianca,
-                forca: r.forca || 0,
-                rsi: r.rsi || 50,
-                adx: r.adx || 0,
-                tendencia: r.tendencia || "NEUTRO"
-            }));
+            // Se temos o cache da análise rápida, usamos ele como base
+            baseParaOportunidades = cachedAnaliseFull;
             tsBase = analiseFullTimestamp;
         }
 
@@ -425,17 +414,10 @@ app.get("/oportunidades-compra", async (req, res) => {
             const macro = await getMacro();
             const resultados = await processarAtivosEmBatch(ATIVOS_VALIDOS, macro, 30, true);
 
-            baseParaOportunidades = resultados.filter(r => !r.erro).map(r => ({
-                ticker: r.ticker,
-                nome: getTickerName(r.ticker),
-                preco: r.preco,
-                sinal: r.sinal,
-                confianca: r.confianca,
-                forca: r.forca || 0,
-                rsi: r.rsi || 50,
-                adx: r.adx || 0,
-                tendencia: r.detalhes?.tendencia || "NEUTRO"
-            }));
+            baseParaOportunidades = resultados.filter(r => !r.erro).map(r => {
+                r.nome = getTickerName(r.ticker);
+                return r;
+            });
             tsBase = agora;
         }
 
@@ -615,18 +597,10 @@ app.get("/analise-rapida", async (req, res) => {
         console.log(`📊 Executando análise completa de ${ATIVOS_VALIDOS.length} ativos...`);
         const macro = await getMacro();
         const resultados = await processarAtivosEmBatch(ATIVOS_VALIDOS, macro, 35, true);
-        const resultadosValidos = resultados.filter(r => !r.erro).map(r => ({
-            ticker: r.ticker,
-            nome: getTickerName(r.ticker),
-            preco: r.preco,
-            sinal: r.sinal,
-            confianca: r.confianca,
-            forca: r.forca,
-            rsi: r.rsi,
-            adx: r.adx,
-            tendencia: r.detalhes?.tendencia || "NEUTRO",
-            recomendacao: r.recomendacao
-        }));
+        const resultadosValidos = resultados.filter(r => !r.erro).map(r => {
+            r.nome = getTickerName(r.ticker);
+            return r;
+        });
 
         cachedAnaliseFull = resultadosValidos;
         analiseFullTimestamp = agora;
