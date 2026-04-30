@@ -1643,6 +1643,71 @@ export default function Home() {
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* Cards Oportunidades (Versão Mobile) */}
+                            <div className="oport-cards-grid">
+                                {oportunidades
+                                    .filter(o => {
+                                        if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && analisarEntrada(o).recomendacao === "ENTRAR";
+                                        if (subAbaOportunidades === "venda") return o.sinal === "VENDA" && (o.confianca >= 60 || o.sellScore >= 6);
+                                        return (o.sinal === "NEUTRO" || (o.confianca < 60 && o.score < 6 && o.sellScore < 6));
+                                    })
+                                    .sort((a, b) => {
+                                        if (subAbaOportunidades === "compra") {
+                                            if (b.confianca !== a.confianca) return b.confianca - a.confianca;
+                                            if (b.score !== a.score) return b.score - a.score;
+                                            return b.adx - a.adx;
+                                        }
+                                        if (subAbaOportunidades === "venda") {
+                                            if (b.confianca !== a.confianca) return b.confianca - a.confianca;
+                                            if (b.sellScore !== a.sellScore) return b.sellScore - a.sellScore;
+                                            return b.adx - a.adx;
+                                        }
+                                        return b.confianca - a.confianca;
+                                    })
+                                    .map((ativo, idx) => {
+                                        const prob = (subAbaOportunidades === "compra" ? ativo.probabilidade : ativo.probabilidadeVenda) ?? 0;
+                                        const rec = subAbaOportunidades === "compra" 
+                                            ? analisarEntrada(ativo).recomendacao 
+                                            : (ativo.recomendacaoVenda ?? "NEUTRO");
+                                        const score = (subAbaOportunidades === "compra" ? ativo.score : ativo.sellScore) ?? 0;
+                                        
+                                        const probClass = subAbaOportunidades === "compra" 
+                                            ? (prob >= 70 ? 'forte-compra' : prob >= 50 ? 'compra' : 'neutro')
+                                            : (prob >= 70 ? 'forte-venda' : prob >= 50 ? 'venda' : 'neutro');
+                                        
+                                        return (
+                                            <div key={ativo.ticker} className={`oport-card ${probClass}`} onClick={() => verDetalhes(ativo.ticker)}>
+                                                <div className="card-top-row">
+                                                    <span className="card-rank">#{idx + 1}</span>
+                                                    <span className={`card-badge ${probClass}`}>{rec}</span>
+                                                </div>
+                                                <div className="card-ticker">{ativo.ticker.replace('.SA', '')} <span style={{fontSize:'12px', fontWeight:'normal', color:'var(--text-muted)'}}>{ativo.nome || ativo.ticker}</span></div>
+                                                <div className="card-price">R$ {fmt(ativo.preco)}</div>
+                                                
+                                                <div className="metrics-grid" style={{marginTop: '15px'}}>
+                                                    <div className="metric" style={{padding: '8px'}}>
+                                                        <div className="metric-label">Probab.</div>
+                                                        <div className="metric-value">{prob}%</div>
+                                                    </div>
+                                                    <div className="metric" style={{padding: '8px'}}>
+                                                        <div className="metric-label">Score</div>
+                                                        <div className={`metric-value ${score >= 5 ? 'green' : score <= 0 ? 'red' : ''}`}>{score >= 0 ? '+' : ''}{score}</div>
+                                                    </div>
+                                                    <div className="metric" style={{padding: '8px'}}>
+                                                        <div className="metric-label">Confiança</div>
+                                                        <div className="metric-value">{ativo.confianca}%</div>
+                                                    </div>
+                                                    <div className="metric" style={{padding: '8px'}}>
+                                                        <div className="metric-label">ADX</div>
+                                                        <div className={`metric-value ${ativo.adx >= 25 ? 'green' : ''}`}>{fmt(ativo.adx, 1)}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                }
+                            </div>
                         </div>
 
                         {/* ═══════════════════════════════════════════════════════════════
