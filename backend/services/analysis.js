@@ -5,6 +5,13 @@ const { calcularIndicadores } = require("../utils/indicators");
 const { gerarSinal }          = require("../strategies/strategy");
 const { buscarNoticias }      = require("./news");
 const { geraVereditoIA }      = require("./aiService");
+const { 
+    detectRSIDivergence, 
+    detectMACDDivergence, 
+    detectPullbackOpportunity, 
+    analyzeVolumeAccumulation, 
+    calculateDynamicStops 
+} = require("../utils/advancedAnalysis");
 
 
 // ── Cache local de notícias (evita buscas repetidas) ────────────────────────
@@ -54,6 +61,30 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
     const precoAbertura = opens.at(-1);
     const fechamentoAnterior = closes.length > 1 ? closes.at(-2) : null;
 
+    // ── Análise Avançada (Novas métricas) ────────────────────────────────────
+    const rsiDivergence = detectRSIDivergence(closes, ind.rsi);
+    const macdDivergence = detectMACDDivergence(closes, ind.macd);
+    const pullback = detectPullbackOpportunity(closes, sma9, sma21, rsi, atr);
+    const volumeAcc = analyzeVolumeAccumulation(volumes, closes);
+    
+    // Métricas de Variação e Momentum para o Frontend
+    const varIntraday = precoAbertura ? ((preco - precoAbertura) / precoAbertura) * 100 : 0;
+    const diaNegativo = preco < precoAbertura;
+    const quedaDia = Math.max(0, precoAbertura ? ((precoAbertura - preco) / precoAbertura) * 100 : 0);
+    
+    const last3Closes = closes.slice(-3);
+    const last3Opens = opens.slice(-3);
+    let verdes = 0;
+    let vermelhos = 0;
+    last3Closes.forEach((c, i) => {
+        if (c > last3Opens[i]) verdes++;
+        else vermelhos++;
+    });
+
+    const variacao5dias = closes.length >= 6 ? ((preco - closes.at(-6)) / closes.at(-6)) * 100 : 0;
+    const volumeMedio = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+    const volumeConfirmacao = volumes.at(-1) > volumeMedio * 1.2 ? "FORTE" : volumes.at(-1) < volumeMedio * 0.8 ? "FRACO" : "NORMAL";
+
     // ── Gerar sinal com todas as camadas ─────────────────────────────────────
     const resultado = gerarSinal({
         preco,
@@ -76,6 +107,19 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
         precoAbertura,
         fechamentoAnterior
     });
+
+    // Injetar métricas avançadas nos detalhes para o frontend
+    resultado.detalhes.rsi_divergence = rsiDivergence.type?.toUpperCase();
+    resultado.detalhes.macd_divergence = macdDivergence.type?.toUpperCase();
+    resultado.detalhes.pullback = pullback;
+    resultado.detalhes.volume_accumulation = volumeAcc;
+    resultado.detalhes.var_intraday = varIntraday.toFixed(2);
+    resultado.detalhes.dia_negativo = diaNegativo;
+    resultado.detalhes.queda_dia = quedaDia.toFixed(2);
+    resultado.detalhes.momentum_candles = { verdes, vermelhos };
+    resultado.detalhes.variacao_5dias = variacao5dias.toFixed(2);
+    resultado.detalhes.volume_confirmacao = volumeConfirmacao;
+    resultado.detalhes.stops = calculateDynamicStops(preco, atr, resultado.sinal === "VENDA" ? "SELL" : "BUY");
 
     // ── Notícias e IA apenas se solicitado (pula por padrão para performance) ─────
     let noticias = [];

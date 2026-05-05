@@ -73,24 +73,38 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, 
         detalhes.rejeicao = "TOPO";
     }
 
-    // ── 5. PRESSÃO VENDEDORA DO DIA (FILTRO DE SEGURANÇA) ───────────────────
+    // ── 5. PRESSÃO DO DIA (FILTRO DE SEGURANÇA E MOMENTUM) ──────────────────
+    const fechamentoPositivo = fechamentoAnterior && preco > fechamentoAnterior;
     const fechamentoNegativo = fechamentoAnterior && preco < fechamentoAnterior;
+    const candleComprador = preco > precoAbertura;
     const candleVendedor = preco < precoAbertura;
 
-    if (fechamentoNegativo) {
-        forca -= 1.5; // Penaliza se o dia está sendo de queda
+    if (fechamentoPositivo) {
+        forca += 1.0; // Bônus por fechar acima de ontem
+        detalhes.pressao_dia = "POSITIVA";
+    } else if (fechamentoNegativo) {
+        forca -= 1.0; // Penalidade reduzida de 1.5 para 1.0
         detalhes.pressao_dia = "NEGATIVA";
     }
     
-    if (candleVendedor) {
-        forca -= 1.5; // Penaliza se o preço está abaixo da abertura (urso dominando)
+    if (candleComprador) {
+        forca += 1.0; // Bônus por estar acima da abertura
+        detalhes.candle = "COMPRADOR";
+    } else if (candleVendedor) {
+        forca -= 1.0; // Penalidade reduzida de 1.5 para 1.0
         detalhes.candle = "VENDEDOR";
     }
 
-    // Se ambos forem negativos, a queda é forte, reduzimos a confiança drasticamente
+    // Se ambos forem positivos, o momentum é forte
+    if (fechamentoPositivo && candleComprador) {
+        forca += 0.5;
+        avisos.push("🚀 Momentum de alta confirmado no dia");
+    }
+
+    // Se ambos forem negativos, a queda é forte, mas evitamos matar o sinal se houver suporte
     if (fechamentoNegativo && candleVendedor) {
-        forca -= 1.0; 
-        avisos.push("🛑 Queda forte no dia: aguarde sinal de reversão");
+        forca -= 0.5; 
+        avisos.push("🛑 Pressão vendedora no dia");
     }
 
     // ── 6. GESTÃO DE RISCO (STOP E ALVO) ────────────────────────────────────
@@ -101,8 +115,8 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, 
 
     // ── SINAL FINAL ────────────────────────────────────────────────────────
     let sinal = "NEUTRO";
-    if (forca >= 3.0) sinal = "COMPRA"; // Aumentado para exigir no mínimo 60% de confiança
-    else if (forca <= -3.0) sinal = "VENDA"; 
+    if (forca >= 2.5) sinal = "COMPRA"; // Reduzido de 3.0 para 2.5 para ser mais inclusivo
+    else if (forca <= -2.5) sinal = "VENDA"; 
 
     // Ajuste de confiança baseado no volume
     let confianca = Math.min(100, Math.abs(forca) * 20); 
@@ -134,8 +148,8 @@ function calcularRecomendacao(sinal, confianca, forca, detalhes, rsi, adx) {
     let bloqueadores = [];
 
     // 1. Tendência e Sinal
-    if (sinal === "COMPRA") pontosPositivos += 2;
-    if (sinal === "VENDA") pontosNegativos += 2;
+    if (sinal === "COMPRA") pontosPositivos += 3; // Aumentado de 2 para 3
+    if (sinal === "VENDA") pontosNegativos += 3;
     if (detalhes.tendencia === "ALTA") pontosPositivos += 1;
     else pontosNegativos += 1;
 
@@ -147,8 +161,8 @@ function calcularRecomendacao(sinal, confianca, forca, detalhes, rsi, adx) {
     // 3. ADX
     if (adx >= 25) pontosPositivos += 2;
     else if (adx < 20) {
-        bloqueadores.push("ADX Baixo (Lateral)");
-        pontosNegativos += 3;
+        // bloqueadores.push("ADX Baixo (Lateral)"); // Removido como bloqueador obrigatório
+        pontosNegativos += 2;
     }
 
     // 4. RSI
@@ -156,18 +170,21 @@ function calcularRecomendacao(sinal, confianca, forca, detalhes, rsi, adx) {
     else if (rsi > 65) pontosNegativos += 1;
     else pontosPositivos += 1;
 
-    // 5. Filtros de Segurança (Bloqueadores)
+    // 5. Filtros de Momentum do Dia
+    if (detalhes.pressao_dia === "POSITIVA") pontosPositivos += 2;
+    if (detalhes.candle === "COMPRADOR") pontosPositivos += 1;
+
     if (detalhes.pressao_dia === "NEGATIVA" && sinal === "COMPRA") {
-        bloqueadores.push("Pressão Vendedora no Dia");
-        pontosNegativos += 4;
+        bloqueadores.push("Fechamento Negativo");
+        pontosNegativos += 3;
     }
 
     const score = pontosPositivos - pontosNegativos;
 
     if (bloqueadores.length >= 2) return { tipo: "EVITAR", score, icone: "🚫" };
-    if (bloqueadores.length >= 1 || score <= 0) return { tipo: "MONITORAR", score, icone: "🔎" };
-    if (score >= 8 && confianca >= 70) return { tipo: "ENTRAR", score, icone: "✅" };
-    if (score >= 4 && confianca >= 60) return { tipo: "ENTRAR COM CAUTELA", score, icone: "⚡" };
+    if (score <= 0) return { tipo: "MONITORAR", score, icone: "🔎" };
+    if (score >= 7 && confianca >= 60) return { tipo: "ENTRAR", score, icone: "✅" }; // Reduzido de 8/70 para 7/60
+    if (score >= 4 && confianca >= 50) return { tipo: "ENTRAR COM CAUTELA", score, icone: "⚡" };
     
     return { tipo: "NEUTRO", score, icone: "◆" };
 }

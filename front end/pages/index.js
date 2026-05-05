@@ -930,108 +930,108 @@ function analisarEntrada(d) {
     // ── NOVOS FILTROS PARA EVITAR SINAIS FALSOS ───────────────────────────────
     // ═════════════════════════════════════════════════════════════════════════
 
-    // 13. Variação Intraday - não comprar se preço já subiu muito no dia
+    // 13. Variação Intraday - momentum do dia
     if (d.detalhes?.var_intraday) {
         const varIntra = parseFloat(d.detalhes.var_intraday);
-        if (d.sinal === "COMPRA" && varIntra > 1.5) {
-            bloqueadores.push(`⚠️ Preço já subiu ${varIntra.toFixed(1)}% hoje — risco de topo`);
-            pontosNegativos += 3;
-        } else if (d.sinal === "COMPRA" && varIntra > 0.8) {
-            pontosNegativos += 1;
-            pontos.push({ tipo: "negativo", texto: `Preço subiu ${varIntra.toFixed(1)}% hoje — cautela` });
-        } else if (varIntra < -0.5) {
-            pontosPositivos += 1;
-            pontos.push({ tipo: "positivo", texto: `Preço caiu ${Math.abs(varIntra).toFixed(1)}% hoje — melhor entrada` });
+        if (d.sinal === "COMPRA" && varIntra > 3.0) { // Aumentado de 1.5 para 3.0 para risco de topo
+            bloqueadores.push(`⚠️ Preço já subiu muito (${varIntra.toFixed(1)}%) hoje — risco de exaustão`);
+            pontosNegativos += 2;
+        } else if (d.sinal === "COMPRA" && varIntra > 0.5) {
+            pontosPositivos += 1; // Agora ganha ponto por momentum positivo moderado
+            pontos.push({ tipo: "positivo", texto: `Momentum positivo no dia (+${varIntra.toFixed(1)}%)` });
+        } else if (varIntra < -1.0) {
+            pontosNegativos += 1; // Penaliza levemente se estiver caindo muito no intraday
+            pontos.push({ tipo: "negativo", texto: `Preço em queda no intraday (${varIntra.toFixed(1)}%)` });
         }
     }
 
     // 14. Momentum dos últimos candles
     if (d.detalhes?.momentum_candles) {
         const { vermelhos, verdes } = d.detalhes.momentum_candles;
-        if (d.sinal === "COMPRA" && vermelhos >= 2) {
+        if (d.sinal === "COMPRA" && vermelhos >= 3) {
             pontosNegativos += 2;
-            pontos.push({ tipo: "negativo", texto: `${vermelhos} candles vermelhos nos últimos 3 — momentum fraco` });
+            pontos.push({ tipo: "negativo", texto: "3 candles vermelhos seguidos — momentum fraco" });
         } else if (d.sinal === "COMPRA" && verdes >= 2) {
-            pontosPositivos += 1;
-            pontos.push({ tipo: "positivo", texto: `${verdes} candles verdes — momentum forte` });
+            pontosPositivos += 2;
+            pontos.push({ tipo: "positivo", texto: "Momentum de alta nos últimos candles" });
         }
     }
 
     // 15. Tendência de curto prazo (5 dias)
     if (d.detalhes?.variacao_5dias) {
         const var5dias = parseFloat(d.detalhes.variacao_5dias);
-        if (d.sinal === "COMPRA" && var5dias < -3) {
-            bloqueadores.push(`⚠️ Caiu ${Math.abs(var5dias).toFixed(1)}% em 5 dias — tendência de baixa`);
+        if (d.sinal === "COMPRA" && var5dias < -5) {
+            bloqueadores.push(`⚠️ Tendência de curto prazo de baixa (${var5dias.toFixed(1)}% em 5d)`);
             pontosNegativos += 2;
-        } else if (var5dias > 3) {
+        } else if (var5dias > 2) {
             pontosPositivos += 1;
-            pontos.push({ tipo: "positivo", texto: `Subiu ${var5dias.toFixed(1)}% em 5 dias — tendência de alta` });
+            pontos.push({ tipo: "positivo", texto: `Alta de ${var5dias.toFixed(1)}% nos últimos 5 dias` });
         }
     }
 
-    // 16. Dia negativo - bloqueio ADICIONAL E RIGOROSO para compra
+    // 16. Dia negativo - bloqueio para compra
     if (d.detalhes?.dia_negativo === true && d.sinal === "COMPRA") {
         const queda = d.detalhes?.queda_dia ? parseFloat(d.detalhes.queda_dia) : 0;
         
-        // Bloqueio obrigatório para qualquer sinal negativo no dia
-        bloqueadores.push(`🚫 Candle Vermelho (Preço < Abertura) — aguardar reversão intraday`);
-        pontosNegativos += 5; // Penalidade pesada para garantir score baixo
-
-        if (queda > 0.5) {
-            bloqueadores.push(`🚫 Pressão vendedora forte (-${queda.toFixed(1)}%) — risco de queda livre`);
-            pontosNegativos += 3;
+        // Bloqueio apenas se a queda for significativa
+        if (queda > 1.0) {
+            bloqueadores.push(`🚫 Pressão vendedora forte no dia (-${queda.toFixed(1)}%)`);
+            pontosNegativos += 4;
+        } else {
+            pontosNegativos += 2;
+            pontos.push({ tipo: "negativo", texto: "Preço abaixo da abertura (candle vendedor)" });
         }
     }
 
-    // 16.1 Preço abaixo do fechamento anterior (Gap de baixa ou queda)
+    // 16.1 Preço abaixo do fechamento anterior
     if (d.fechamentoAnterior && d.preco < d.fechamentoAnterior && d.sinal === "COMPRA") {
         const quedaAnt = ((d.fechamentoAnterior - d.preco) / d.fechamentoAnterior) * 100;
-        if (quedaAnt > 0.3) {
-            pontosNegativos += 2;
+        if (quedaAnt > 0.5) {
+            pontosNegativos += 1;
             pontos.push({ tipo: "negativo", texto: `Abaixo do fechamento anterior (-${quedaAnt.toFixed(1)}%)` });
         }
     }
 
     // 17. Confirmação de volume
-    if (d.detalhes?.volume_confirmacao === "FRACO" && d.sinal === "COMPRA") {
-        pontosNegativos += 2;
-        pontos.push({ tipo: "negativo", texto: "Volume baixo — sinal sem confirmação" });
+    if (d.detalhes?.volume_confirmacao === "FORTE" && d.sinal === "COMPRA") {
+        pontosPositivos += 2;
+        pontos.push({ tipo: "positivo", texto: "Volume alto confirmando o movimento" });
     }
 
     // Calcular score final
     const score = pontosPositivos - pontosNegativos;
 
-    // Determinar recomendação - THRESHOLDS MAIS RIGOROSOS
+    // Determinar recomendação - THRESHOLDS EQUILIBRADOS
     let recomendacao = "NEUTRO";
     let cor = "blue";
     let icone = "◆";
     let mensagem = "Monitorando mercado";
 
-    // Se há bloqueadores, NÃO recomendar entrada
+    // Se há bloqueadores graves, NÃO recomendar entrada
     if (bloqueadores.length >= 2) {
         recomendacao = "EVITAR";
         cor = "red";
         icone = "🚫";
-        mensagem = "Muitos fatores contrários - evite operar";
-    } else if (bloqueadores.length >= 1 || score <= 0) {
+        mensagem = "Condições desfavoráveis para operação";
+    } else if (score <= 0) {
         recomendacao = "MONITORAR";
         cor = "yellow";
         icone = "🔎";
-        mensagem = "Aguardando confirmação de tendência";
-    } else if (score >= 10 && d.confianca >= 70 && d.sinal !== "NEUTRO") {
-        // Aumentei de 8 para 10 e de 60 para 70
+        mensagem = "Aguardando melhor sinal técnico";
+    } else if (score >= 8 && d.confianca >= 65 && d.sinal !== "NEUTRO") {
+        // Reduzido de 10/70 para 8/65
         recomendacao = "ENTRAR";
         cor = "green";
         icone = "✅";
         mensagem = d.sinal === "COMPRA"
-            ? "Boa oportunidade de compra detectada!"
-            : "Boa oportunidade de venda detectada!";
-    } else if (score >= 7 && d.confianca >= 65 && d.sinal !== "NEUTRO") {
-        // Aumentei de 5 para 7 e adicionei requisito de confiança
+            ? "Ótima oportunidade de compra detectada!"
+            : "Ótima oportunidade de venda detectada!";
+    } else if (score >= 5 && d.confianca >= 55 && d.sinal !== "NEUTRO") {
+        // Reduzido de 7/65 para 5/55
         recomendacao = "ENTRAR COM CAUTELA";
         cor = "blue";
         icone = "⚡";
-        mensagem = "Entrada possível mas com riscos";
+        mensagem = "Sinal positivo com riscos moderados";
     }
 
     return {
@@ -1509,24 +1509,24 @@ export default function Home() {
                             {/* Header Profissional */}
                             <div className="oport-section-header">
                                 <div className="oport-header-top">
-                                    <div className="sub-abas-oport">
+                            <div className="sub-abas-oport">
                                         <button 
                                             className={`sub-aba-btn compra ${subAbaOportunidades === "compra" ? "active" : ""}`}
                                             onClick={() => setSubAbaOportunidades("compra")}
                                         >
-                                            📈 Melhores Compras ({oportunidades.filter(o => o.sinal === "COMPRA" && analisarEntrada(o).recomendacao === "ENTRAR").length})
+                                            📈 Melhores Compras ({oportunidades.filter(o => o.sinal === "COMPRA" && ["ENTRAR", "ENTRAR COM CAUTELA"].includes(analisarEntrada(o).recomendacao)).length})
                                         </button>
                                         <button 
                                             className={`sub-aba-btn venda ${subAbaOportunidades === "venda" ? "active" : ""}`}
                                             onClick={() => setSubAbaOportunidades("venda")}
                                         >
-                                            📉 Melhores Vendas ({oportunidades.filter(o => o.sinal === "VENDA" && o.confianca >= 60).length})
+                                            📉 Melhores Vendas ({oportunidades.filter(o => o.sinal === "VENDA" && (o.confianca >= 60 || o.sellScore >= 6)).length})
                                         </button>
                                         <button 
                                             className={`sub-aba-btn neutro ${subAbaOportunidades === "aguardar" ? "active" : ""}`}
                                             onClick={() => setSubAbaOportunidades("aguardar")}
                                         >
-                                            ◆ Aguardando ({oportunidades.filter(o => o.sinal === "NEUTRO" || o.confianca < 60).length})
+                                            ◆ Aguardando ({oportunidades.filter(o => o.sinal === "NEUTRO" || (o.confianca < 60 && o.score < 6 && o.sellScore < 6)).length})
                                         </button>
                                     </div>
                                 </div>
@@ -1552,7 +1552,7 @@ export default function Home() {
                                     <tbody>
                                         {oportunidades
                                             .filter(o => {
-                                                if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && analisarEntrada(o).recomendacao === "ENTRAR";
+                                                if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && ["ENTRAR", "ENTRAR COM CAUTELA"].includes(analisarEntrada(o).recomendacao);
                                                 if (subAbaOportunidades === "venda") return o.sinal === "VENDA" && (o.confianca >= 60 || o.sellScore >= 6);
                                                 return (o.sinal === "NEUTRO" || (o.confianca < 60 && o.score < 6 && o.sellScore < 6));
                                             })
@@ -1572,13 +1572,14 @@ export default function Home() {
                                                 return b.confianca - a.confianca;
                                             })                                            .map((ativo, idx) => {
                                                 const prob = (subAbaOportunidades === "compra" ? ativo.probabilidade : ativo.probabilidadeVenda) ?? 0;
-                                                const rec = subAbaOportunidades === "compra" 
-                                                    ? analisarEntrada(ativo).recomendacao 
-                                                    : (ativo.recomendacaoVenda ?? "NEUTRO");
+                                                const recObj = subAbaOportunidades === "compra" 
+                                                    ? analisarEntrada(ativo)
+                                                    : { recomendacao: ativo.recomendacaoVenda ?? "NEUTRO" };
+                                                const rec = recObj.recomendacao;
                                                 const score = (subAbaOportunidades === "compra" ? ativo.score : ativo.sellScore) ?? 0;
                                                 
                                                 const probClass = subAbaOportunidades === "compra" 
-                                                    ? (prob >= 70 ? 'forte-compra' : prob >= 50 ? 'compra' : 'neutro')
+                                                    ? (rec === "ENTRAR" ? 'forte-compra' : rec === "ENTRAR COM CAUTELA" ? 'compra' : 'neutro')
                                                     : (prob >= 70 ? 'forte-venda' : prob >= 50 ? 'venda' : 'neutro');
                                                 
                                                 return (
@@ -1648,7 +1649,7 @@ export default function Home() {
                             <div className="oport-cards-grid">
                                 {oportunidades
                                     .filter(o => {
-                                        if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && analisarEntrada(o).recomendacao === "ENTRAR";
+                                        if (subAbaOportunidades === "compra") return o.sinal === "COMPRA" && ["ENTRAR", "ENTRAR COM CAUTELA"].includes(analisarEntrada(o).recomendacao);
                                         if (subAbaOportunidades === "venda") return o.sinal === "VENDA" && (o.confianca >= 60 || o.sellScore >= 6);
                                         return (o.sinal === "NEUTRO" || (o.confianca < 60 && o.score < 6 && o.sellScore < 6));
                                     })
@@ -1667,13 +1668,14 @@ export default function Home() {
                                     })
                                     .map((ativo, idx) => {
                                         const prob = (subAbaOportunidades === "compra" ? ativo.probabilidade : ativo.probabilidadeVenda) ?? 0;
-                                        const rec = subAbaOportunidades === "compra" 
-                                            ? analisarEntrada(ativo).recomendacao 
-                                            : (ativo.recomendacaoVenda ?? "NEUTRO");
+                                        const recObj = subAbaOportunidades === "compra" 
+                                            ? analisarEntrada(ativo)
+                                            : { recomendacao: ativo.recomendacaoVenda ?? "NEUTRO" };
+                                        const rec = recObj.recomendacao;
                                         const score = (subAbaOportunidades === "compra" ? ativo.score : ativo.sellScore) ?? 0;
                                         
                                         const probClass = subAbaOportunidades === "compra" 
-                                            ? (prob >= 70 ? 'forte-compra' : prob >= 50 ? 'compra' : 'neutro')
+                                            ? (rec === "ENTRAR" ? 'forte-compra' : rec === "ENTRAR COM CAUTELA" ? 'compra' : 'neutro')
                                             : (prob >= 70 ? 'forte-venda' : prob >= 50 ? 'venda' : 'neutro');
                                         
                                         return (
