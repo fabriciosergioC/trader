@@ -85,30 +85,61 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
     const volumeMedio = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
     const volumeConfirmacao = volumes.at(-1) > volumeMedio * 1.2 ? "FORTE" : volumes.at(-1) < volumeMedio * 0.8 ? "FRACO" : "NORMAL";
 
-    // ── Gerar sinal com todas as camadas ─────────────────────────────────────
-    const resultado = gerarSinal({
-        preco,
-        rsi,
-        rsi14,
-        sma9,
-        sma21,
-        sma50,
-        sma200,
-        macd,
-        adx,
-        bb,
-        obv,
-        atr,
-        volumes,
-        macro,
-        closes,      // Array completo para divergências
-        highs,       // Array completo para análise
-        lows,        // Array completo para análise
-        precoAbertura,
-        fechamentoAnterior
-    });
+    // ── Função auxiliar para extrair dados de um dia específico ─────────────
+    const getSinalNoDia = (offset) => {
+        // Offset 0 = hoje, 1 = ontem, etc.
+        return gerarSinal({
+            preco: closes.at(-(offset + 1)),
+            rsi: ind.rsi.at(-(offset + 1)),
+            rsi14: ind.rsi14.at(-(offset + 1)),
+            sma9: ind.sma9.at(-(offset + 1)),
+            sma21: ind.sma21.at(-(offset + 1)),
+            sma50: ind.sma50.at(-(offset + 1)),
+            sma200: ind.sma200.at(-(offset + 1)),
+            macd: ind.macd.at(-(offset + 1)),
+            adx: ind.adx.at(-(offset + 1)),
+            bb: ind.bb.at(-(offset + 1)),
+            obv: ind.obv.slice(0, ind.obv.length - offset),
+            atr: ind.atr.at(-(offset + 1)),
+            volumes: volumes.slice(0, volumes.length - offset),
+            macro,
+            closes: closes.slice(0, closes.length - offset),
+            highs: highs.slice(0, highs.length - offset),
+            lows: lows.slice(0, lows.length - offset),
+            precoAbertura: opens.at(-(offset + 1)),
+            fechamentoAnterior: closes.at(-(offset + 2))
+        });
+    };
+
+    // ── Gerar sinal atual e verificar persistência ──────────────────────────
+    const resultado = getSinalNoDia(0);
+    
+    // Calcular quantos dias seguidos o sinal se mantém
+    let dias_consecutivos = 1;
+    if (resultado.sinal !== "NEUTRO") {
+        for (let i = 1; i < 5; i++) {
+            const resAnterior = getSinalNoDia(i);
+            if (resAnterior.sinal === resultado.sinal) {
+                dias_consecutivos++;
+            } else {
+                break;
+            }
+        }
+    }
+
+    // ── REGRA DE PERSISTÊNCIA ANALÍTICA ─────────────────────────────────────
+    // Se o sinal é novo (apenas 1 dia), só permitimos se a confiança for ALTÍSSIMA (> 95)
+    // Caso contrário, tratamos como NEUTRO até que se confirme no dia seguinte.
+    const sinalOriginal = resultado.sinal;
+    if (resultado.sinal !== "NEUTRO" && dias_consecutivos < 2 && resultado.confianca < 95) {
+        resultado.sinal = "NEUTRO";
+        resultado.avisos.push("⏳ Sinal em formação. Aguardando confirmação (Regra de Persistência)");
+        resultado.recomendacao = { tipo: "MONITORAR", score: 0, icone: "🔎" };
+    }
 
     // Injetar métricas avançadas nos detalhes para o frontend
+    resultado.detalhes.dias_consecutivos = dias_consecutivos;
+    resultado.detalhes.sinal_original = sinalOriginal;
     resultado.detalhes.rsi_divergence = rsiDivergence.type?.toUpperCase();
     resultado.detalhes.macd_divergence = macdDivergence.type?.toUpperCase();
     resultado.detalhes.pullback = pullback;
@@ -172,6 +203,7 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
         sinal_longo_prazo: resultado.sinal_longo_prazo,
         forca:     resultado.forca,
         confianca: resultado.confianca,
+        dias_consecutivos: dias_consecutivos,
         avisos:    resultado.avisos,
         detalhes:  resultado.detalhes,
         // Notícias e IA

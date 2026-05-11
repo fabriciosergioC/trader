@@ -49,6 +49,7 @@ function geraPrompt(dadosAtivo, dadosMacro) {
       "recomendacao": "Compra|Venda|Aguardar",
       "justificativa_tecnica": "string",
       "justificativa_contexto": "string",
+      "previsao_duracao": "Curta (1-2 dias)|Média (3-7 dias)|Longa (> 7 dias)",
       "alvos": { "entrada": number, "stop_loss": number, "take_profit": number },
       "confianca": number
     }

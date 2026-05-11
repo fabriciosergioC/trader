@@ -115,8 +115,8 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, 
 
     // ── SINAL FINAL ────────────────────────────────────────────────────────
     let sinal = "NEUTRO";
-    if (forca >= 2.5) sinal = "COMPRA"; // Reduzido de 3.0 para 2.5 para ser mais inclusivo
-    else if (forca <= -2.5) sinal = "VENDA"; 
+    if (forca >= 3.0) sinal = "COMPRA"; // Aumentado de 2.5 para 3.0 para maior rigor
+    else if (forca <= -3.0) sinal = "VENDA"; 
 
     // Ajuste de confiança baseado no volume
     let confianca = Math.min(100, Math.abs(forca) * 20); 
@@ -183,8 +183,8 @@ function calcularRecomendacao(sinal, confianca, forca, detalhes, rsi, adx) {
 
     if (bloqueadores.length >= 2) return { tipo: "EVITAR", score, icone: "🚫" };
     if (score <= 0) return { tipo: "MONITORAR", score, icone: "🔎" };
-    if (score >= 7 && confianca >= 60) return { tipo: "ENTRAR", score, icone: "✅" }; // Reduzido de 8/70 para 7/60
-    if (score >= 4 && confianca >= 50) return { tipo: "ENTRAR COM CAUTELA", score, icone: "⚡" };
+    if (score >= 8 && confianca >= 70) return { tipo: "ENTRAR", score, icone: "✅" }; // Restaurado para 8/70 para ser mais analítico
+    if (score >= 5 && confianca >= 60) return { tipo: "ENTRAR COM CAUTELA", score, icone: "⚡" };
     
     return { tipo: "NEUTRO", score, icone: "◆" };
 }
