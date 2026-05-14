@@ -70,7 +70,9 @@ function verificarAlerta(dados) {
             let msg = `<b>${recomendacao.icone || '✅'} ${recomendacao.tipo}: ${ticker.replace('.SA', '')}</b>\n\n` +
                       `💰 <b>Preço:</b> R$ ${preco.toFixed(2)}\n` +
                       `🔥 <b>Confiança:</b> ${confianca}%\n` +
-                      `📊 <b>Score Técnico:</b> ${score > 0 ? '+' : ''}${score}\n`;
+                      `📊 <b>Score Técnico:</b> ${score > 0 ? '+' : ''}${score}\n` +
+                      `⏰ <b>Entrada:</b> ${detalhes?.horario_entrada || 'Abertura'}\n` +
+                      `⌛ <b>Saída:</b> ${detalhes?.horario_saida || 'Fechamento'}\n`;
             
             if (vereditoIA && !vereditoIA.erro) {
                 msg += `\n<b>🤖 ANÁLISE GEMINI AI:</b>\n` +

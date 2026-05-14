@@ -107,16 +107,20 @@ function gerarSinal({ preco, rsi, rsi14, sma9, sma21, sma50, sma200, macd, adx, 
         avisos.push("🛑 Pressão vendedora no dia");
     }
 
-    // ── 6. GESTÃO DE RISCO (STOP E ALVO) ────────────────────────────────────
-    const volatilidade = atr ?? (preco * 0.02); // Fallback 2%
-    detalhes.stopLoss = preco - (volatilidade * 2); // 2x ATR para baixo
-    detalhes.takeProfit = preco + (volatilidade * 3); // 3x ATR para cima (Ratio 1.5)
-    detalhes.riscoRetorno = "1.5";
-
     // ── SINAL FINAL ────────────────────────────────────────────────────────
     let sinal = "NEUTRO";
-    if (forca >= 3.0) sinal = "COMPRA"; // Aumentado de 2.5 para 3.0 para maior rigor
+    if (forca >= 3.0) sinal = "COMPRA"; 
     else if (forca <= -3.0) sinal = "VENDA"; 
+
+    // ── 6. GESTÃO DE RISCO (INTRADAY / DAY TRADE) ───────────────────────────
+    const basePreco = precoAbertura ?? preco;
+    const volatilidade = atr ?? (basePreco * 0.02); // Fallback 2%
+    
+    detalhes.horario_entrada = "Início do pregão (Abertura)";
+    detalhes.horario_saida = "Fim do dia (Fechamento)";
+    detalhes.stopLoss = sinal === "VENDA" ? basePreco + (volatilidade * 1.5) : basePreco - (volatilidade * 1.5); 
+    detalhes.takeProfit = sinal === "VENDA" ? basePreco - (volatilidade * 2.5) : basePreco + (volatilidade * 2.5);
+    detalhes.riscoRetorno = "1:1.6";
 
     // Ajuste de confiança baseado no volume
     let confianca = Math.min(100, Math.abs(forca) * 20); 

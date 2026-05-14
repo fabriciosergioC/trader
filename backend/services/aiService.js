@@ -25,13 +25,15 @@ function geraPrompt(dadosAtivo, dadosMacro) {
     const noticiasLimitadas = (dadosAtivo.noticias || []).slice(0, 5);
     return `
     Aja como um analista financeiro sênior especializado na B3 (Bolsa Brasileira), certificado com CNPI.
-    Forneça uma análise técnica e qualitativa para o ativo ${dadosAtivo.ticker}.
+    Forneça uma análise técnica e qualitativa para o ativo ${dadosAtivo.ticker}, com foco exclusivo em DAY TRADE (Intraday).
+    A estratégia é entrar no início do pregão e sair no fim do mesmo dia.
 
-    DADOS TÉCNICOS:
-    - Preço: R$ ${dadosAtivo.preco}
+    DADOS TÉCNICOS DO DIA:
+    - Preço Atual: R$ ${dadosAtivo.preco}
+    - Abertura: R$ ${dadosAtivo.precoAbertura || 'N/A'}
     - RSI (14): ${dadosAtivo.rsi}
     - ADX: ${dadosAtivo.adx}
-    - ATR: ${dadosAtivo.atr}
+    - ATR (Volatilidade): ${dadosAtivo.atr}
     - Tendência: ${dadosAtivo.detalhes.tendencia}
     - Sinais: ${dadosAtivo.detalhes.rejeicao || "Neutro"}
 
@@ -47,9 +49,9 @@ function geraPrompt(dadosAtivo, dadosMacro) {
     {
       "sentimento": "Otimista|Neutro|Pessimista",
       "recomendacao": "Compra|Venda|Aguardar",
-      "justificativa_tecnica": "string",
-      "justificativa_contexto": "string",
-      "previsao_duracao": "Curta (1-2 dias)|Média (3-7 dias)|Longa (> 7 dias)",
+      "justificativa_tecnica": "Explique o sinal para o dia de hoje",
+      "justificativa_contexto": "Explique o contexto para hoje",
+      "previsao_duracao": "Intraday (Fim do dia)",
       "alvos": { "entrada": number, "stop_loss": number, "take_profit": number },
       "confianca": number
     }

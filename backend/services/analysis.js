@@ -127,16 +127,11 @@ async function analisarAtivo(ticker, macro, skipNoticias = true) {
         }
     }
 
-    // ── REGRA DE PERSISTÊNCIA ANALÍTICA ─────────────────────────────────────
-    // Se o sinal é novo (apenas 1 dia), só permitimos se a confiança for ALTÍSSIMA (> 95)
-    // Caso contrário, tratamos como NEUTRO até que se confirme no dia seguinte.
+    // ── REGRA DE PERSISTÊNCIA ANALÍTICA REMOVIDA PARA ENTRADAS DIÁRIAS ────────
     const sinalOriginal = resultado.sinal;
-    if (resultado.sinal !== "NEUTRO" && dias_consecutivos < 2 && resultado.confianca < 95) {
-        resultado.sinal = "NEUTRO";
-        resultado.avisos.push("⏳ Sinal em formação. Aguardando confirmação (Regra de Persistência)");
-        resultado.recomendacao = { tipo: "MONITORAR", score: 0, icone: "🔎" };
-    }
-
+    // Removida a exigência de 2 dias consecutivos para permitir operação intraday (day trade)
+    // conforme solicitação do usuário para foco em previsão diária.
+    
     // Injetar métricas avançadas nos detalhes para o frontend
     resultado.detalhes.dias_consecutivos = dias_consecutivos;
     resultado.detalhes.sinal_original = sinalOriginal;
