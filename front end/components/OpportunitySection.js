@@ -9,38 +9,49 @@ const OpportunitySection = ({ opportunities = [] }) => {
 
     if (!opportunities || !Array.isArray(opportunities)) return null;
 
-    const filtered = opportunities.filter(o => {
+    let filtered = opportunities.filter(o => {
         if (subAbaOportunidades === "compra") {
             const analise = analisarEntrada(o);
             const hasSR = o.detalhes?.sr_analysis;
             
-            // Somente ativos em região de suporte ou rompimento de resistência
+            // Somente ativos em região de suporte ou rompimento de resistência (MAIS FLEXÍVEL!)
             const isSRZone = hasSR && (
                 hasSR.entry_zone_status === "SUPORTE_RESPEITADO" || 
-                hasSR.entry_zone_status === "ROMPIMENTO_ALTA_CONFIRMADO"
+                hasSR.entry_zone_status === "ROMPIMENTO_ALTA_CONFIRMADO" ||
+                hasSR.entry_zone_status === "ROMPIMENTO_ALTA_PARCIAL"
             );
             
-            const isBuyRecommended = ["ENTRAR", "ENTRAR COM CAUTELA", "ENTRADA CONFIRMADA PELA IA"].includes(analise.recomendacao);
-            const isHighADX = o.adx > 21;
+            const isBuyRecommended = ["ENTRAR", "ENTRAR COM CAUTELA", "ENTRADA CONFIRMADA PELA IA", "COMPRAR"].includes(analise.recomendacao);
             
-            return o.sinal === "COMPRA" && isSRZone && isBuyRecommended && isHighADX;
+            return o.sinal === "COMPRA" && (isSRZone || !hasSR) && (isBuyRecommended || !analise.recomendacao);
         }
         if (subAbaOportunidades === "venda") {
             const analise = analisarEntrada(o);
             const hasSR = o.detalhes?.sr_analysis;
             
-            // Somente ativos em região de resistência ou rompimento de suporte
             const isSRZone = hasSR && (
                 hasSR.entry_zone_status === "RESISTENCIA_RESPEITADA" || 
-                hasSR.entry_zone_status === "ROMPIMENTO_BAIXA_CONFIRMADO"
+                hasSR.entry_zone_status === "ROMPIMENTO_BAIXA_CONFIRMADO" ||
+                hasSR.entry_zone_status === "ROMPIMENTO_BAIXA_PARCIAL"
             );
 
-            const isSellRecommended = ["ENTRAR", "ENTRAR COM CAUTELA", "ENTRADA CONFIRMADA PELA IA"].includes(analise.recomendacao);
+            const isSellRecommended = ["ENTRAR", "ENTRAR COM CAUTELA", "ENTRADA CONFIRMADA PELA IA", "VENDER"].includes(analise.recomendacao);
             
-            return o.sinal === "VENDA" && isSRZone && isSellRecommended;
+            return o.sinal === "VENDA" && (isSRZone || !hasSR) && (isSellRecommended || !analise.recomendacao);
         }
         return (o.sinal === "NEUTRO" || (o.confianca < 60 && o.score < 6 && o.sellScore < 6));
-    }).sort((a, b) => {
+    });
+
+    // FALLBACK: SE NENHUM RESULTADO, MOSTRA TODOS OS ATIVOS COM O SINAL CORRESPONDENTE!
+    if (filtered.length === 0) {
+        filtered = opportunities.filter(o => {
+            if (subAbaOportunidades === "compra") return o.sinal === "COMPRA";
+            if (subAbaOportunidades === "venda") return o.sinal === "VENDA";
+            return o.sinal === "NEUTRO";
+        });
+    }
+
+    filtered.sort((a, b) => {
         if (subAbaOportunidades === "compra") {
             if (b.confianca !== a.confianca) return b.confianca - a.confianca;
             return b.score - a.score;

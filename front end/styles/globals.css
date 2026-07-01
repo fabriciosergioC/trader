@@ -3126,6 +3126,10 @@ body::before {
 }
 
 @media (max-width: 768px) {
+  .oport-section-header {
+    padding: 16px;
+  }
+  
   .oport-header-top {
     flex-direction: column;
   }
@@ -3195,21 +3199,24 @@ body::before {
 /* ── SUB-ABAS OPORTUNIDADES ── */
 .sub-abas-oport {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .sub-aba-btn {
-  padding: 10px 20px;
+  padding: 10px 14px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
   font-family: 'Inter', sans-serif;
+  flex: 1;
+  min-width: fit-content;
 }
 
 .sub-aba-btn.compra.active {
