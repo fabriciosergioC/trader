@@ -14,9 +14,27 @@ export function useCryptoData(options = {}) {
     queryKey: ['crypto_quick_analysis', page, busca],
     queryFn: async () => {
       const res = await axios.get(`${API_URL}/api/crypto/analise-rapida?pagina=${page}&limite=${limit}&busca=${busca}`);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`crypto_quick_analysis_${page}_${busca}`, JSON.stringify(res.data));
+        } catch (e) {
+          console.warn("localStorage quota exceeded or disabled:", e);
+        }
+      }
       return res.data;
     },
-    placeholderData: keepPreviousData,
+    placeholderData: (previousData) => {
+      if (previousData) return previousData;
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem(`crypto_quick_analysis_${page}_${busca}`);
+          if (cached) return JSON.parse(cached);
+        } catch (e) {
+          return undefined;
+        }
+      }
+      return undefined;
+    },
     enabled: !ticker,
   });
 
@@ -25,7 +43,26 @@ export function useCryptoData(options = {}) {
     queryKey: ['crypto_opportunities'],
     queryFn: async () => {
       const res = await axios.get(`${API_URL}/api/crypto/oportunidades?limite=10`);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('crypto_opportunities_data', JSON.stringify(res.data));
+        } catch (e) {
+          console.warn("localStorage quota exceeded or disabled:", e);
+        }
+      }
       return res.data;
+    },
+    placeholderData: (previousData) => {
+      if (previousData) return previousData;
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('crypto_opportunities_data');
+          if (cached) return JSON.parse(cached);
+        } catch (e) {
+          return undefined;
+        }
+      }
+      return undefined;
     },
     enabled: !ticker,
   });

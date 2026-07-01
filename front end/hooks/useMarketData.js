@@ -14,9 +14,27 @@ export function useMarketData(options = {}) {
     queryKey: ['quick_analysis', sector, page, busca],
     queryFn: async () => {
       const res = await axios.get(`${API_URL}/analise-rapida?setor=${sector}&pagina=${page}&limite=${limit}&busca=${busca}`)
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`quick_analysis_${sector}_${page}_${busca}`, JSON.stringify(res.data));
+        } catch (e) {
+          console.warn("localStorage quota exceeded or disabled:", e);
+        }
+      }
       return res.data;
     },
-    placeholderData: keepPreviousData,
+    placeholderData: (previousData) => {
+      if (previousData) return previousData;
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem(`quick_analysis_${sector}_${page}_${busca}`);
+          if (cached) return JSON.parse(cached);
+        } catch (e) {
+          return undefined;
+        }
+      }
+      return undefined;
+    },
     enabled: !ticker,
   })
 
@@ -25,7 +43,26 @@ export function useMarketData(options = {}) {
     queryKey: ['opportunities'],
     queryFn: async () => {
       const res = await axios.get(`${API_URL}/oportunidades-compra?limite=200`)
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('opportunities_data', JSON.stringify(res.data));
+        } catch (e) {
+          console.warn("localStorage quota exceeded or disabled:", e);
+        }
+      }
       return res.data;
+    },
+    placeholderData: (previousData) => {
+      if (previousData) return previousData;
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('opportunities_data');
+          if (cached) return JSON.parse(cached);
+        } catch (e) {
+          return undefined;
+        }
+      }
+      return undefined;
     },
     enabled: !ticker,
   })
