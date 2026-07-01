@@ -3,6 +3,8 @@ const express = require("express");
 const cors    = require("cors");
 const cron    = require("node-cron");
 const axios   = require("axios");
+const compression = require("compression");
+const helmet = require("helmet");
 
 const { analisarAtivo }    = require("./services/analysis");
 // ...
@@ -24,9 +26,40 @@ const io = new Server(server, {
     }
 });
 
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Middlewares de performance e segurança (para Android/web)
+app.use(compression());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "blob:"],
+            connectSrc: ["'self'", "ws://localhost:3002", "wss://localhost:3002", "https://api.render.com"],
+        },
+    },
+}));
+
+const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
+app.use(cors({
+    origin: CORS_ORIGIN === "*" ? true : CORS_ORIGIN.split(",").map(o => o.trim()),
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+}));
+
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10kb" }));
+
+// Cache para endpoints de análise
+app.use((req, res, next) => {
+    if (req.method === "GET") {
+        res.setHeader("Cache-Control", "public, max-age=60, s-maxage=120, stale-while-revalidate=180");
+    } else {
+        res.setHeader("Cache-Control", "no-store");
+    }
+    next();
+});
 
 // Helper to emit updates to all connected clients
 const emitUpdate = (type, data) => {
