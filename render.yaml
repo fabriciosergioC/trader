@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: trading-system-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PORT
+        value: 3002
+      - key: CORS_ORIGIN
+        value: https://your-netlify-app.netlify.app # Troque pela URL do seu front-end
+    autoDeploy: true
