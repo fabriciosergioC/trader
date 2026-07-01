@@ -7,7 +7,15 @@ const OpportunitySection = ({ opportunities = [] }) => {
     const { subAbaOportunidades, setSubAbaOportunidades } = useStore();
     const { isMobile } = useResponsiveLayout();
 
-    if (!opportunities || !Array.isArray(opportunities)) return null;
+    console.log("🔍 OpportunitySection Debug:");
+    console.log("- subAbaOportunidades:", subAbaOportunidades);
+    console.log("- opportunities length:", opportunities?.length);
+    console.log("- isMobile:", isMobile);
+
+    if (!opportunities || !Array.isArray(opportunities)) {
+        console.warn("⚠️ No opportunities array found!");
+        return null;
+    }
 
     let filtered = opportunities.filter(o => {
         if (subAbaOportunidades === "compra") {
@@ -43,14 +51,19 @@ const OpportunitySection = ({ opportunities = [] }) => {
     });
 
     // FALLBACK: SE NENHUM RESULTADO, MOSTRA TODOS OS ATIVOS COM O SINAL CORRESPONDENTE!
+    console.log("- filtered before fallback:", filtered.length);
+
     if (filtered.length === 0) {
+        console.log("⚠️ Fallback activated! Showing all assets with signal.");
         filtered = opportunities.filter(o => {
             if (subAbaOportunidades === "compra") return o.sinal === "COMPRA";
             if (subAbaOportunidades === "venda") return o.sinal === "VENDA";
             return o.sinal === "NEUTRO";
         });
+        console.log("- filtered after fallback:", filtered.length);
     }
 
+    console.log("- final filtered length:", filtered.length);
     filtered.sort((a, b) => {
         if (subAbaOportunidades === "compra") {
             if (b.confianca !== a.confianca) return b.confianca - a.confianca;
@@ -74,7 +87,18 @@ const OpportunitySection = ({ opportunities = [] }) => {
             </div>
 
             <div className="oport-table-container">
-                {isMobile ? (
+                {filtered.length === 0 ? (
+                    <div style={{
+                        padding: "40px 20px",
+                        textAlign: "center",
+                        color: "var(--text-muted)",
+                        fontSize: "16px"
+                    }}>
+                        <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔍</div>
+                        <p>Nenhuma oportunidade encontrada no momento.</p>
+                        <p style={{ fontSize: "13px", marginTop: "8px" }}>Tente novamente mais tarde.</p>
+                    </div>
+                ) : isMobile ? (
                     <div className="oport-cards-grid">
                         {filtered.map((ativo) => {
                             const prob = (subAbaOportunidades === "compra" ? ativo.probabilidade : ativo.probabilidadeVenda) ?? 0;
