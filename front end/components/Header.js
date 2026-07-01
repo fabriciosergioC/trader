@@ -17,6 +17,9 @@ const Header = ({ totalAtivos, totalGeral, onRefresh, atualizando }) => {
                 </div>
             </div>
             <div className="header-right">
+                <Link href="/melhores-compras" className="btn-melhores-compras-link">
+                    📈 Melhores Compras
+                </Link>
                 <Link href="/crypto" className="btn-crypto-link">
                     ₿ Criptoativos
                 </Link>
@@ -47,6 +50,21 @@ const Header = ({ totalAtivos, totalGeral, onRefresh, atualizando }) => {
                 }
                 .btn-crypto-link:hover {
                     background: rgba(245,158,11,0.25);
+                }
+                .btn-melhores-compras-link {
+                    padding: 8px 14px;
+                    background: rgba(16, 185, 129, 0.12);
+                    border: 1px solid rgba(16, 185, 129, 0.25);
+                    border-radius: 8px;
+                    color: #10B981;
+                    font-size: 13px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    text-decoration: none;
+                    transition: background 0.2s;
+                }
+                .btn-melhores-compras-link:hover {
+                    background: rgba(16, 185, 129, 0.25);
                 }
             `}</style>
         </header>
