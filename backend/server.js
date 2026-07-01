@@ -2,17 +2,50 @@ require("dotenv").config();
 const express = require("express");
 const cors    = require("cors");
 const cron    = require("node-cron");
+const axios   = require("axios");
 
 const { analisarAtivo }    = require("./services/analysis");
+// ...
+
 const { verificarAlerta, enviarParaTelegram }  = require("./alerts");
 const { buscarContextoMacro } = require("./services/contextMacro");
 const { sincronizarAtivo, salvarTrade } = require("./services/supabase");
 const { getTickerName } = require("./utils/tickerNames");
 
 const app = express();
+const http = require("http");
+const { Server } = require("socket.io");
+
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Helper to emit updates to all connected clients
+const emitUpdate = (type, data) => {
+    io.emit("market_update", { type, data, timestamp: new Date().toISOString() });
+    console.log(`📡 [WS] Update emitted: ${type}`);
+};
+
+io.on("connection", (socket) => {
+    console.log(`🔌 [WS] Client connected: ${socket.id}`);
+    
+    // Send initial data if available
+    if (cachedMacro) {
+        socket.emit("market_update", { type: "macro", data: cachedMacro });
+    }
+    
+    socket.on("disconnect", () => {
+        console.log(`🔌 [WS] Client disconnected: ${socket.id}`);
+    });
+});
 
 // Log de todas as requisições para depuração
 app.use((req, res, next) => {
@@ -32,7 +65,7 @@ app.get("/test-route", (req, res) => {
 // ── POST /enviar-telegram — Envia sinal manual de um ativo para o Telegram ───
 app.post("/enviar-telegram", async (req, res) => {
     try {
-        const { ticker, preco, sinal, confianca, score, veredito, recomendacao } = req.body;
+        const { ticker, preco, precoAbertura, precoEntradaViavel, localizacaoEntrada, sinal, confianca, score, veredito, recomendacao } = req.body;
         console.log(`📤 [Telegram] Recebida solicitação manual para ${ticker}`);
 
         if (!ticker) {
@@ -41,7 +74,8 @@ app.post("/enviar-telegram", async (req, res) => {
 
         // Formatar mensagem
         let msg = `<b>${recomendacao?.icone || '✅'} ENVIO MANUAL: ${ticker.replace('.SA', '')}</b>\n\n` +
-                  `💰 <b>Preço:</b> R$ ${preco?.toFixed(2) || '—'}\n` +
+                  `💰 <b>Preço:</b> R$ ${preco?.toFixed(2) || '—'} (Ab: R$ ${precoAbertura?.toFixed(2) || '—'})\n` +
+                  `🛡️ <b>Entrada Viável:</b> R$ ${precoEntradaViavel?.toFixed(2) || '—'} (${localizacaoEntrada || 'Suporte'})\n` +
                   `🔥 <b>Confiança:</b> ${confianca || '—'}%\n` +
                   `📊 <b>Score Técnico:</b> ${score > 0 ? '+' : ''}${score || '—'}\n`;
         
@@ -423,24 +457,28 @@ app.get("/oportunidades-compra", async (req, res) => {
 
         const comScores = baseParaOportunidades.map(ativo => {
             let score = 0;
+            let sellScore = 0;
             let motivoCompra = [];
             let motivoVenda = [];
             let bloqueios = [];
 
             // --- Lógica de COMPRA ---
-            if (ativo.sinal === "COMPRA") score += 35;
-            if (ativo.confianca >= 70) score += 25;
-            if (ativo.rsi < 35) score += 20;
-            if (ativo.adx > 25) score += 10;
-            if (ativo.tendencia === "ALTA") score += 10;
+            if (ativo.sinal === "COMPRA") {
+                score += 35;
+                if (ativo.confianca >= 70) score += 25;
+                if (ativo.rsi < 35) score += 20;
+                if (ativo.adx > 25) score += 10;
+                if (ativo.tendencia === "ALTA") score += 10;
+            }
 
             // --- Lógica de VENDA ---
-            let sellScore = 0;
-            if (ativo.sinal === "VENDA") sellScore += 35;
-            if (ativo.confianca >= 70) sellScore += 25;
-            if (ativo.rsi > 65) sellScore += 20;
-            if (ativo.adx > 25) sellScore += 10;
-            if (ativo.tendencia === "BAIXA") sellScore += 10;
+            if (ativo.sinal === "VENDA") {
+                sellScore += 35;
+                if (ativo.confianca >= 70) sellScore += 25;
+                if (ativo.rsi > 65) sellScore += 20;
+                if (ativo.adx > 25) sellScore += 10;
+                if (ativo.tendencia === "BAIXA") sellScore += 10;
+            }
 
             const probCompra = Math.max(0, Math.min(100, Math.round(score * 1.3)));
             const probVenda  = Math.max(0, Math.min(100, Math.round(sellScore * 1.3)));
@@ -451,8 +489,8 @@ app.get("/oportunidades-compra", async (req, res) => {
                 sellScore,
                 probabilidade: probCompra,
                 probabilidadeVenda: probVenda,
-                recomendacao: probCompra >= 70 ? "FORTE COMPRA" : probCompra >= 50 ? "COMPRA" : "NEUTRO",
-                recomendacaoVenda: probVenda >= 70 ? "FORTE VENDA" : probVenda >= 50 ? "VENDA" : "NEUTRO"
+                recomendacao: ativo.sinal === "COMPRA" && probCompra >= 70 ? "FORTE COMPRA" : ativo.sinal === "COMPRA" && probCompra >= 50 ? "COMPRA" : "NEUTRO",
+                recomendacaoVenda: ativo.sinal === "VENDA" && probVenda >= 70 ? "FORTE VENDA" : ativo.sinal === "VENDA" && probVenda >= 50 ? "VENDA" : "NEUTRO"
             };
         });
 
@@ -507,6 +545,37 @@ app.get("/analise-ia/:ticker", async (req, res) => {
     }
 });
 
+// ── GET /dom/:ticker — Análise Super DOM + Times & Trades ────────────────────
+app.get("/dom/:ticker", async (req, res) => {
+    try {
+        const { ticker } = req.params;
+        const tickerUpper = ticker.toUpperCase();
+        const tickerFull = tickerUpper.includes('.SA') ? tickerUpper : `${tickerUpper}.SA`;
+
+        console.log(`📊 [DOM] Analisando microestrutura de ${tickerFull}...`);
+
+        const macro = await getMacro();
+        const resultado = await analisarAtivo(tickerFull, macro, true); // skipNoticias=true para performance
+
+        if (resultado.erro) {
+            return res.status(400).json({ error: resultado.erro });
+        }
+
+        res.json({
+            ticker: resultado.ticker,
+            preco: resultado.preco,
+            tt_analysis:  resultado.tt_analysis  ?? resultado.detalhes?.tt_analysis,
+            dom_analysis: resultado.dom_analysis ?? resultado.detalhes?.dom_analysis,
+            sr_analysis:  resultado.detalhes?.sr_analysis,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error("Erro /dom:", error.message);
+        res.status(500).json({ error: "Erro ao gerar análise DOM" });
+    }
+});
+
+
 // ═════════════════════════════════════════════════════════════════════════════
 // ── Agendador Automático (CRON)
 // ═════════════════════════════════════════════════════════════════════════════
@@ -541,6 +610,7 @@ cron.schedule("*/10 9-18 * * 1-5", async () => {
             if (analiseProfunda.length > 0) {
                 console.log(`📤 [CRON] Enviando ${analiseProfunda.length} alertas para o Telegram...`);
                 verificarAlerta(analiseProfunda);
+                emitUpdate("cron_analysis", { resultados: analiseProfunda });
             }
         } else {
             console.log(`✅ [CRON] Varredura concluída. Nenhum sinal forte detectado.`);
@@ -566,7 +636,7 @@ cron.schedule("*/10 * * * *", () => {
 // ── GET /analise-rapida — análise sem detalhes para performance ──────────────
 app.get("/analise-rapida", async (req, res) => {
     try {
-        const { setor, pagina = 1, limite = 30, force } = req.query;
+        const { setor, pagina = 1, limite = 30, force, busca } = req.query;
         const paginaNum = parseInt(pagina);
         const limiteNum = parseInt(limite);
         const agora = Date.now();
@@ -575,6 +645,14 @@ app.get("/analise-rapida", async (req, res) => {
             let ativosFiltrados = cachedAnaliseFull;
             if (setor && ATIVOS[setor]) {
                 ativosFiltrados = cachedAnaliseFull.filter(r => ATIVOS[setor].includes(r.ticker));
+            }
+
+            if (busca) {
+                const query = busca.toLowerCase().replace('engie', 'egie');
+                ativosFiltrados = ativosFiltrados.filter(r => 
+                    r.ticker.toLowerCase().includes(query) || 
+                    (r.nome || '').toLowerCase().includes(query)
+                );
             }
 
             const inicio = (paginaNum - 1) * limiteNum;
@@ -610,6 +688,14 @@ app.get("/analise-rapida", async (req, res) => {
             ativosFiltrados = resultadosValidos.filter(r => ATIVOS[setor].includes(r.ticker));
         }
 
+        if (busca) {
+            const query = busca.toLowerCase().replace('engie', 'egie');
+            ativosFiltrados = ativosFiltrados.filter(r => 
+                r.ticker.toLowerCase().includes(query) || 
+                (r.nome || '').toLowerCase().includes(query)
+            );
+        }
+
         const inicio = (paginaNum - 1) * limiteNum;
         const ativosPaginados = ativosFiltrados.slice(inicio, inicio + limiteNum);
 
@@ -630,6 +716,10 @@ app.get("/analise-rapida", async (req, res) => {
         res.status(500).json({ error: "Erro na análise rápida" });
     }
 });
+
+// Rotas adicionais de Criptomoedas (Isoladas e independentes)
+const cryptoRouter = require("./routes/crypto");
+app.use("/api/crypto", cryptoRouter);
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {

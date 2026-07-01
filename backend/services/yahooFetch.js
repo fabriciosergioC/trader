@@ -164,4 +164,61 @@ async function buscarHistorico(ticker, startDate, interval = '1d') {
     })).filter(d => d.close != null);
 }
 
-module.exports = { buscarQuote, buscarHistorico };
+/**
+ * Busca resumo fundamentalista de um ticker
+ * @param {string} ticker 
+ * @returns {Object|null}
+ */
+async function buscarResumo(ticker) {
+    // Endpoints do Yahoo para dados fundamentalistas
+    // modules: summaryDetail (P/L, DY, volume), financialData (ROE, Margens), defaultKeyStatistics (P/VP, Beta)
+    const modules = 'summaryDetail,financialData,defaultKeyStatistics,assetProfile';
+    const url = `https://query1.finance.yahoo.com/v11/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=${modules}`;
+
+    try {
+        const json = await fetchJson(url);
+        const result = json?.quoteSummary?.result?.[0];
+        if (!result) return null;
+
+        const sd = result.summaryDetail || {};
+        const fd = result.financialData || {};
+        const ks = result.defaultKeyStatistics || {};
+        const ap = result.assetProfile || {};
+
+        return {
+            // Valuation
+            pe: sd.trailingPE?.raw || null,
+            pb: ks.priceToBook?.raw || null,
+            ps: sd.priceToSalesTrailing12Months?.raw || null,
+            dividendYield: (sd.dividendYield?.raw || 0) * 100,
+            marketCap: sd.marketCap?.raw || null,
+            
+            // Rentabilidade e Margens
+            roe: (fd.returnOnEquity?.raw || 0) * 100,
+            roa: (fd.returnOnAssets?.raw || 0) * 100,
+            netMargin: (fd.profitMargins?.raw || 0) * 100,
+            ebitdaMargin: (fd.ebitdaMargins?.raw || 0) * 100,
+            
+            // Endividamento e Liquidez
+            currentRatio: fd.currentRatio?.raw || null,
+            debtToEquity: fd.debtToEquity?.raw || null,
+            totalCash: fd.totalCash?.raw || null,
+            totalDebt: fd.totalDebt?.raw || null,
+
+            // Perfil
+            sector: ap.sector || 'N/A',
+            industry: ap.industry || 'N/A',
+            longBusinessSummary: ap.longBusinessSummary || '',
+            
+            // Outros
+            beta: ks.beta?.raw || null,
+            forwardPE: ks.forwardPE?.raw || null,
+            eps: ks.trailingEps?.raw || null,
+        };
+    } catch (e) {
+        console.warn(`⚠️ buscarResumo falhou para ${ticker}: ${e.message}`);
+        return null;
+    }
+}
+
+module.exports = { buscarQuote, buscarHistorico, buscarResumo };

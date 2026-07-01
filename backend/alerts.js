@@ -68,7 +68,8 @@ function verificarAlerta(dados) {
             console.log(`   - ${ticker}: GERANDO MENSAGEM PARA TELEGRAM!`);
             
             let msg = `<b>${recomendacao.icone || '✅'} ${recomendacao.tipo}: ${ticker.replace('.SA', '')}</b>\n\n` +
-                      `💰 <b>Preço:</b> R$ ${preco.toFixed(2)}\n` +
+                      `💰 <b>Preço:</b> R$ ${preco.toFixed(2)} (Ab: R$ ${d.precoAbertura?.toFixed(2) || '—'})\n` +
+                      `🛡️ <b>Entrada Viável:</b> R$ ${d.precoEntradaViavel?.toFixed(2) || '—'} (${d.localizacaoEntrada || 'Suporte'})\n` +
                       `🔥 <b>Confiança:</b> ${confianca}%\n` +
                       `📊 <b>Score Técnico:</b> ${score > 0 ? '+' : ''}${score}\n` +
                       `⏰ <b>Entrada:</b> ${detalhes?.horario_entrada || 'Abertura'}\n` +

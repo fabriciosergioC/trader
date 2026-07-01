@@ -23,10 +23,19 @@ const modelGemini = genAI.getGenerativeModel({
  */
 function geraPrompt(dadosAtivo, dadosMacro) {
     const noticiasLimitadas = (dadosAtivo.noticias || []).slice(0, 5);
+    
+    // Formatar padrões de candlestick detectados
+    let padroesCandlestick = "Nenhum padrão de candlestick relevante detectado no momento.";
+    if (dadosAtivo.detalhes?.candlestick_patterns?.length > 0) {
+        padroesCandlestick = dadosAtivo.detalhes.candlestick_patterns.map(p => 
+            `- Padrão: ${p.pattern.namePortuguese} (${p.pattern.type.toUpperCase()})\n      Confiança: ${p.confidence}%\n      Confluência: ${p.confluenceScore}%\n      Notas: ${p.notes.join(' | ')}`
+        ).join('\n\n    ');
+    }
+
     return `
     Aja como um analista financeiro sênior especializado na B3 (Bolsa Brasileira), certificado com CNPI.
-    Forneça uma análise técnica e qualitativa para o ativo ${dadosAtivo.ticker}, com foco exclusivo em DAY TRADE (Intraday).
-    A estratégia é entrar no início do pregão e sair no fim do mesmo dia.
+    Sua missão é realizar uma Análise de Entrada focada em Padrões de Candlestick e Confluência Técnica para o ativo ${dadosAtivo.ticker}.
+    A estratégia deve avaliar se os padrões detectados oferecem uma oportunidade clara de operação (DAY TRADE ou SWING TRADE).
 
     DADOS TÉCNICOS DO DIA:
     - Preço Atual: R$ ${dadosAtivo.preco}
@@ -34,24 +43,32 @@ function geraPrompt(dadosAtivo, dadosMacro) {
     - RSI (14): ${dadosAtivo.rsi}
     - ADX: ${dadosAtivo.adx}
     - ATR (Volatilidade): ${dadosAtivo.atr}
-    - Tendência: ${dadosAtivo.detalhes.tendencia}
-    - Sinais: ${dadosAtivo.detalhes.rejeicao || "Neutro"}
+    - Tendência: ${dadosAtivo.detalhes?.tendencia || "N/A"}
+    - Sinal Algorítmico: ${dadosAtivo.sinal}
+
+    PADRÕES DE CANDLESTICK DETECTADOS (PESO ALTO NA ANÁLISE):
+    ${padroesCandlestick}
 
     CONTEXTO MACRO:
-    - VIX: ${dadosMacro.vix}
-    - Selic: ${dadosMacro.selic || "N/A"}
-    - IBOV: ${dadosMacro.ibov_tendencia || "N/A"}
+    - VIX: ${dadosMacro?.vix || "N/A"}
+    - Selic: ${dadosMacro?.selic || "N/A"}
+    - IBOV: ${dadosMacro?.ibov_tendencia || "N/A"}
 
     NOTÍCIAS:
-    ${noticiasLimitadas.length > 0 ? noticiasLimitadas.map(n => `- ${n.title}`).join('\n') : "Sem notícias relevantes."}
+    ${noticiasLimitadas.length > 0 ? noticiasLimitadas.map(n => `- ${n.titulo}`).join('\n') : "Sem notícias relevantes."}
 
-    Retorne APENAS um JSON válido:
+    Instruções de Análise Estratégica:
+    1. Avalie o peso dos Padrões de Candlestick em relação à tendência atual e ao RSI.
+    2. Verifique o score de "Confluência" dos padrões detectados para validar a força do sinal.
+    3. Defina pontos de entrada precisos, stop loss e take profit (alvo) baseados na volatilidade (ATR) e nos padrões detectados (ex: Stop abaixo da mínima do padrão de reversão).
+
+    Retorne APENAS um JSON válido com a seguinte estrutura estrita:
     {
       "sentimento": "Otimista|Neutro|Pessimista",
       "recomendacao": "Compra|Venda|Aguardar",
-      "justificativa_tecnica": "Explique o sinal para o dia de hoje",
-      "justificativa_contexto": "Explique o contexto para hoje",
-      "previsao_duracao": "Intraday (Fim do dia)",
+      "justificativa_tecnica": "Análise focada nos padrões de candlestick e sua confluência técnica com outros indicadores",
+      "justificativa_contexto": "Impacto do cenário macro e das notícias na validade do padrão detectado",
+      "previsao_duracao": "Day Trade ou Swing Trade",
       "alvos": { "entrada": number, "stop_loss": number, "take_profit": number },
       "confianca": number
     }

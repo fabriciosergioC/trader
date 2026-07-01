@@ -12,6 +12,12 @@ const TERMOS_BUSCA = {
     "BBAS3.SA": "Banco do Brasil BBAS3",
     "WEGE3.SA": "Weg WEGE3",
     "RENT3.SA": "Localiza RENT3",
+    // Criptomoedas
+    "BTC-USD": "Bitcoin BTC",
+    "ETH-USD": "Ethereum ETH",
+    "SOL-USD": "Solana SOL",
+    "ADA-USD": "Cardano ADA",
+    "XRP-USD": "Ripple XRP",
 };
 
 function fetchURL(url) {

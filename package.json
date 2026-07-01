@@ -9,10 +9,10 @@
     "build": "cd \"front end\" && npm install && npm run build",
     "postinstall": "npm install --prefix backend && npm install --prefix \"front end\""
   },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  },
   "engines": {
     "node": ">=20.0.0"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
   }
 }

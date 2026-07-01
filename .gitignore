@@ -38,3 +38,14 @@ Thumbs.db
 
 # Project Specific
 skills/
+
+# Test files
+0.26.0
+]
+backend/test*.js
+backend/analyze.js
+backend/debug*.js
+backend/test_*.js
+backend/test_output.txt
+front end/check_rw.js
+prompt_estrategia_candlestick_entradas.md
